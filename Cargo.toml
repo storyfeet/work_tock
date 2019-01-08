@@ -6,3 +6,5 @@ edition = "2018"
 
 [dependencies]
 lazy_conf = {path = "../../mlibs/lazy_conf"}
+chrono = "0.4.6"
+derive_more = "0.13.0"

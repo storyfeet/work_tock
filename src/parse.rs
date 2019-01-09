@@ -2,14 +2,14 @@ use crate::err::TokErr;
 
 pub struct Peeker<T: Clone, I: Iterator<Item = T>> {
     it: I,
-    peek: Option<T>,
+    peekv: Option<T>,
 }
 
 impl<T: Clone, I: Iterator<Item = T>> Iterator for Peeker<T, I> {
     type Item = T;
     fn next(&mut self) -> Option<T> {
-        match self.peek {
-            Some(_) => self.peek.take(),
+        match self.peekv {
+            Some(_) => self.peekv.take(),
             None => self.it.next(),
         }
     }
@@ -18,26 +18,37 @@ impl<'a> Peeker<char, std::str::Chars<'a>> {
     pub fn from_str(s: &'a str) -> Self {
         Peeker {
             it: s.chars(),
-            peek: None,
+            peekv: None,
         }
     }
 }
 
 impl<T: Clone, I: Iterator<Item = T>> Peeker<T, I> {
-    pub fn from_iter(it:I)->Self{
-        Peeker{
-            it,peek:None,
-        }
+    pub fn from_iter(it: I) -> Self {
+        Peeker { it, peekv: None }
     }
-    fn peek(&mut self) -> Option<T> {
-        if let None = self.peek {
-            self.peek = self.it.next();
+    pub fn peek(&mut self) -> Option<T> {
+        if let None = self.peekv {
+            self.peekv = self.it.next();
         }
-        self.peek.clone()
+        self.peekv.clone()
+    }
+
+    pub fn find_before<F>(&mut self, mut f: F) -> Option<T>
+    where
+        F: FnMut(T) -> bool,
+    {
+        while let Some(r) = self.peek() {
+            if f(r.clone()) {
+                return Some(r);
+            }
+            self.next();
+        }
+        None
     }
 }
 
-#[derive(Debug, PartialEq,Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Break,
     UScore,
@@ -50,17 +61,17 @@ pub enum Token {
 }
 
 impl Token {
-    pub fn as_num(&self)->Result<i32,TokErr>{
-        if let Num(n)= *self{
-            return Ok(n)
+    pub fn as_num(&self) -> Result<i32, TokErr> {
+        if let Num(n) = *self {
+            return Ok(n);
         }
         Err(TokErr::NotNum(self.clone()))
     }
-    pub fn must_be(&self,t:Token)->Result<(),TokErr>{
+    pub fn must_be(&self, t: Token) -> Result<(), TokErr> {
         if *self == t {
-            return Ok(())
+            return Ok(());
         }
-        Err(TokErr::NotAsExpected(t,self.clone()))
+        Err(TokErr::NotAsExpected(t, self.clone()))
     }
 }
 
@@ -85,6 +96,10 @@ impl Iterator for Tokeniser<'_> {
             None => None,
             Some(',') | Some('\n') => Some(Break),
             Some(':') => Some(Colon),
+            Some('#') => {
+                self.it.find(|x| *x == ',' || *x == '\n');
+                Some(Break)
+            }
             Some('_') => {
                 if let Some('_') = self.it.peek() {
                     self.it.next();
@@ -95,6 +110,7 @@ impl Iterator for Tokeniser<'_> {
             }
             Some('-') => Some(Dash),
             Some('/') => Some(Slash),
+            Some('\t') | Some(' ') => self.next(),
             Some(c) => {
                 if c >= '0' && c <= '9' {
                     let mut res = c as i32 - 48;
@@ -154,7 +170,7 @@ mod test {
 
     #[test]
     pub fn test_tokens() {
-        let s = "hello,,everybody,34ghosts";
+        let s = "hello, #poop ,every body,34ghosts";
         let c: Vec<Token> = Tokeniser::new(s).collect();
         assert_eq!(
             c,
@@ -162,7 +178,7 @@ mod test {
                 Str("hello".to_string()),
                 Break,
                 Break,
-                Str("everybody".to_string()),
+                Str("every body".to_string()),
                 Break,
                 Num(34),
                 Str("ghosts".to_string()),

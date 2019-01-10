@@ -55,6 +55,7 @@ pub enum Token {
     DUScore,
     Dash,
     Slash,
+    Equals,
     Colon,
     Num(i32),
     Str(String),
@@ -67,11 +68,11 @@ impl Token {
         }
         Err(TokErr::NotNum(self.clone()))
     }
-    pub fn must_be(&self, t: Token) -> Result<(), TokErr> {
-        if *self == t {
-            return Ok(());
+    pub fn as_str(&self) -> Result<String, TokErr> {
+        if let Str(s) = self {
+            return Ok(s.clone());
         }
-        Err(TokErr::NotAsExpected(t, self.clone()))
+        Err(TokErr::NotString(self.clone()))
     }
 }
 
@@ -108,6 +109,7 @@ impl Iterator for Tokeniser<'_> {
                     Some(UScore)
                 }
             }
+            Some('=') => Some(Equals),
             Some('-') => Some(Dash),
             Some('/') => Some(Slash),
             Some('\t') | Some(' ') => self.next(),

@@ -13,16 +13,18 @@ pub enum ClockAction {
     AddClockout(STime),
     SetJob(String),
     SetDate(NaiveDate),
+    SetDayMonth(u32, u32),
+    SetNum(String, u32),
 }
 use self::ClockAction::*;
 
-#[derive(Clone,Debug, PartialEq, Eq)]
-pub enum Clockin{
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Clockin {
     In(InData),
     Out(STime),
 }
 
-#[derive(Clone,Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InData {
     time: STime,
     date: NaiveDate,
@@ -50,12 +52,14 @@ fn read_break(p: &mut Tokeniser) -> Result<ClockAction, TokErr> {
                 }
                 Token::Slash => {
                     let month = p.next().ok_or(TokErr::UnexpectedEOF)?.as_num()?;
-                    must(
-                        p.next() == Some(Token::Slash),
-                        "Use '/' to separate date items dd/mm/yyyy",
-                    )?;
-                    let year = p.next().ok_or(TokErr::UnexpectedEOF)?.as_num()?; //replace with test on =year
-                    Ok(SetDate(NaiveDate::from_ymd(year, month as u32, n as u32)))
+                    match p.next() {
+                        Some(Token::Slash) => {
+                            let year = p.next().ok_or(TokErr::UnexpectedEOF)?.as_num()?;
+                            Ok(SetDate(NaiveDate::from_ymd(year, month as u32, n as u32)))
+                        }
+                        Some(Token::Break) => Ok(SetDayMonth(n as u32, month as u32)),
+                        other => Err(format!("expected '/' or ',' not '{:?}'", other).into()),
+                    }
                     //date
                 }
                 other => Err(TokErr::Mess(format!(
@@ -73,7 +77,19 @@ fn read_break(p: &mut Tokeniser) -> Result<ClockAction, TokErr> {
             Token::Str(s) => Ok(AddTag(s, false)),
             other => Err(TokErr::Mess(format!("unexpected {:?}", other))),
         },
-        other => Err(TokErr::Mess(format!("Failed at {:?}", other))),
+        Token::Equals => {
+            match p.next().ok_or(U_EOF)? {
+                Token::Str(k)=>{
+                must(p.next() == Some(Token::Colon),"Use a Colon to set value")?;
+                Ok(SetNum(k,p.next().ok_or(U_EOF)?.as_num()? as u32))
+            }
+                other=>Err(TokErr::NotString(other))
+            
+            }
+        }
+        Token::Slash|Token::Colon =>{
+            Err("Items do not start with '/' or ':'".into())
+        }
     }
 }
 
@@ -87,6 +103,8 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
     let mut res = Vec::new();
     let mut errs = Vec::new();
 
+    let mut year: Option<i32> = None;
+
     loop {
         match read_break(&mut pk) {
             Ok(SetJob(s)) => job = Some(s),
@@ -97,11 +115,18 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
                 tags.push(t);
             }
             Ok(SetDate(d)) => date = Some(d),
+            Ok(SetDayMonth(d, m)) => {
+                if let Some(yr) = year {
+                    date = Some(NaiveDate::from_ymd(yr, m, d));
+                } else {
+                    errs.push("Year not set".into());
+                }
+            }
             Ok(NoAction) => {}
             Ok(ClearTags) => tags.clear(),
             Ok(AddClockin(time)) => {
                 if let Some(date) = date {
-                    res.push(Clockin::In( InData{
+                    res.push(Clockin::In(InData {
                         time,
                         date,
                         job: job.clone().unwrap_or("GENERAL".to_string()),
@@ -109,8 +134,13 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
                     }));
                 }
             }
-            Ok(AddClockout(time))=>{
+            Ok(AddClockout(time)) => {
                 res.push(Clockin::Out(time));
+            }
+            Ok(SetNum(k, v)) => {
+                if &k == "year" {
+                    year = Some(v as i32) ;
+                }
             }
             //Ok(a)=> errs.push(TokErr::Mess(format!("Not yet coded {:?}",a))),
             Err(TokErr::EOF) => {

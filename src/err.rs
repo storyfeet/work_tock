@@ -4,6 +4,7 @@ use crate::parse::Token;
 pub enum TokErr {
     Mess(String),
     NotNum(Token),
+    NotString(Token),
     NotAsExpected(Token, Token),
     UnexpectedEOF,
     EOF, //Don't like this,
@@ -22,12 +23,21 @@ impl From<String> for TokErr {
     }
 }
 
-pub fn must(b:bool,s:&str)-> Result<(),TokErr>{
-    if b {Ok(())} else {Err(TokErr::MustFail(s.to_string()))}
+pub fn must(b: bool, s: &str) -> Result<(), TokErr> {
+    if b {
+        Ok(())
+    } else {
+        Err(TokErr::MustFail(s.to_string()))
+    }
 }
 
-pub fn must_pass<T,F>(t:T,f:F,s:&str)->Result<(),TokErr>
-    where F:FnOnce(T)->bool
+pub fn must_pass<T, F>(t: T, f: F, s: &str) -> Result<(), TokErr>
+where
+    F: FnOnce(T) -> bool,
 {
-    if f(t) {Ok(())} else{ (Err(TokErr::MustFail(s.to_string())))}
+    if f(t) {
+        Ok(())
+    } else {
+        (Err(TokErr::MustFail(s.to_string())))
+    }
 }

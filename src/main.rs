@@ -1,5 +1,6 @@
 use std::io::Read;
 
+mod clockin;
 mod parse;
 mod s_time;
 
@@ -29,7 +30,7 @@ fn main() -> Result<(), String> {
     f.read_to_string(&mut s)
         .map_err(|_| "Could not read file")?;
 
-    let (clocks, errs) = s_time::read_string(&s);
+    let (clocks, errs) = clockin::read_string(&s);
 
     println!("CLOCK INS");
     for c in clocks {

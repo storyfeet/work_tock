@@ -44,7 +44,9 @@ fn main() -> Result<(), String> {
 
     let (clocks, errs) = clockin::read_string(&s);
 
-    println!("\n\nERRS  \n{:?}", errs);
+    if errs.len() > 0 {
+        println!("\n\nERRS  \n{:?}", errs);
+    }
 
     let mut curr = None;
     let mut c_io = Vec::new();
@@ -67,7 +69,13 @@ fn main() -> Result<(), String> {
         }
     }
     if let Some(data) = curr {
-        c_io.push((data, STime::now()));
+        println!(
+            "You are clocked in for '{}'.\n You have been since {} for {} hours",
+            data.job,
+            data.time,
+            STime::now() - data.time
+        );
+        c_io.push((data.clone(), STime::now()));
     }
 
     //TODO add filters.

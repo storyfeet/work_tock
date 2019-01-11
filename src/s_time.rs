@@ -10,7 +10,7 @@ impl STime {
         STime(hr * 60 + min)
     }
     pub fn now() -> Self {
-        let t = chrono::offset::Utc::now();
+        let t = chrono::offset::Local::now();
         STime::new(t.time().hour() as i32, t.time().minute() as i32)
     }
 }

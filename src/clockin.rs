@@ -26,10 +26,10 @@ pub enum Clockin {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InData {
-    time: STime,
-    date: NaiveDate,
-    job: String,
-    tags: Vec<String>,
+    pub time: STime,
+    pub date: NaiveDate,
+    pub job: String,
+    pub tags: Vec<String>,
 }
 
 //Note TokErr::EOF is used when file ends is not a bad error.
@@ -77,19 +77,14 @@ fn read_break(p: &mut Tokeniser) -> Result<ClockAction, TokErr> {
             Token::Str(s) => Ok(AddTag(s, false)),
             other => Err(TokErr::Mess(format!("unexpected {:?}", other))),
         },
-        Token::Equals => {
-            match p.next().ok_or(U_EOF)? {
-                Token::Str(k)=>{
-                must(p.next() == Some(Token::Colon),"Use a Colon to set value")?;
-                Ok(SetNum(k,p.next().ok_or(U_EOF)?.as_num()? as u32))
+        Token::Equals => match p.next().ok_or(U_EOF)? {
+            Token::Str(k) => {
+                must(p.next() == Some(Token::Colon), "Use a Colon to set value")?;
+                Ok(SetNum(k, p.next().ok_or(U_EOF)?.as_num()? as u32))
             }
-                other=>Err(TokErr::NotString(other))
-            
-            }
-        }
-        Token::Slash|Token::Colon =>{
-            Err("Items do not start with '/' or ':'".into())
-        }
+            other => Err(TokErr::NotString(other)),
+        },
+        Token::Slash | Token::Colon => Err("Items do not start with '/' or ':'".into()),
     }
 }
 
@@ -139,7 +134,7 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
             }
             Ok(SetNum(k, v)) => {
                 if &k == "year" {
-                    year = Some(v as i32) ;
+                    year = Some(v as i32);
                 }
             }
             //Ok(a)=> errs.push(TokErr::Mess(format!("Not yet coded {:?}",a))),

@@ -10,6 +10,7 @@ use crate::clockin::Clockin;
 mod parse;
 mod s_time;
 use crate::s_time::STime;
+mod pesto;
 
 mod err;
 
@@ -114,13 +115,15 @@ fn main() -> Result<(), String> {
     println!("Total Time = {}", t_time);
 
     if let Some(_) = out {
-        if let Some(_data) = curr{
-            let mut f = std::fs::OpenOptions::new().append(true).open(&fname).map_err(|e|format!("{:?}",e))?;
+        if let Some(_data) = curr {
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&fname)
+                .map_err(|e| format!("{:?}", e))?;
             let now = STime::now();
-            write!(f,"-{}",now).map_err(|e|format!("{:?}",e))?;
-            println!("You are now Clocked out at {}",now);
-        }
-        else {
+            write!(f, "-{}", now).map_err(|e| format!("{:?}", e))?;
+            println!("You are now Clocked out at {}", now);
+        } else {
             println!("Cannot clock out, if not clocked in");
         }
     }

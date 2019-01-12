@@ -8,3 +8,6 @@ edition = "2018"
 lazy_conf = {path = "../../mlibs/lazy_conf"}
 chrono = "0.4.6"
 derive_more = "0.13.0"
+
+pest = "2.0"
+pest_derive = "2.0"

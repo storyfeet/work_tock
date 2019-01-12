@@ -1,0 +1,12 @@
+Plusnum={ASCII_DIGIT+}
+Time=${Plusnum ~ ":" ~ Plusnum}
+Clockout=${"-" ~ Time}
+ClockIO={ Time ~ "-" ~ Time} 
+Date = ${Plusnum ~ "/" ~ Plusnum ~ ("/" ~ Plusnum)?}
+
+
+Record = {( Time | Clockout | ClockIO | Date)}
+
+
+
+WHITE_SPACE = _{" "|"\t"}

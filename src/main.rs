@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::io::Write;
 
 use chrono::naive::NaiveDate;
 use chrono::offset::Local;
@@ -31,6 +32,8 @@ fn main() -> Result<(), String> {
         .fg("-wk")
         .help("Week Of Year: 1 to 53 or use '-' for this week")
         .s();
+
+    let out = cfg.grab().fg("-out").help("Clock Out").s();
 
     if cfg.help("Work Tock") {
         return Ok(());
@@ -68,17 +71,18 @@ fn main() -> Result<(), String> {
             }
         }
     }
-    if let Some(data) = curr {
+    if let Some(data) = curr.clone() {
         println!(
             "You are clocked in for '{}'.\n You have been since {} for {} hours",
-            data.job,
+            &data.job,
             data.time,
             STime::now() - data.time
         );
         c_io.push((data.clone(), STime::now()));
     }
 
-    //TODO add filters.
+    //filter.
+
     if let Some(wks) = week {
         let dt = Local::today();
         let (st, fin) = match wks.parse::<u32>() {
@@ -108,6 +112,18 @@ fn main() -> Result<(), String> {
 
     println!("{:?}", r_times);
     println!("Total Time = {}", t_time);
+
+    if let Some(_) = out {
+        if let Some(_data) = curr{
+            let mut f = std::fs::OpenOptions::new().append(true).open(&fname).map_err(|e|format!("{:?}",e))?;
+            let now = STime::now();
+            write!(f,"-{}",now).map_err(|e|format!("{:?}",e))?;
+            println!("You are now Clocked out at {}",now);
+        }
+        else {
+            println!("Cannot clock out, if not clocked in");
+        }
+    }
 
     Ok(())
 }

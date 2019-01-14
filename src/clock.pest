@@ -1,11 +1,23 @@
+string = ${ "\"" ~ inner ~ "\"" }
+StrInner = @{ char* }
+char = {
+    !("\"" | "\\") ~ ANY
+    | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
+}
+
+Word={LETTER+}
+
 Plusnum={ASCII_DIGIT+}
 Time=${Plusnum ~ ":" ~ Plusnum}
 Clockout=${"-" ~ Time}
 ClockIO={ Time ~ "-" ~ Time} 
 Date = ${Plusnum ~ "/" ~ Plusnum ~ ("/" ~ Plusnum)?}
 
+Tag = ${"_"~ Word}
+ClearTag = ${"__" ~ Word?}
+Job = {$("\"" ~ StrInner ~ "\"") | Word}
 
-Record = {( Time | Clockout | ClockIO | Date)}
+Record = {( Time | Clockout | ClockIO | Date |NumSetter| Tag| Job)}
 
 
 

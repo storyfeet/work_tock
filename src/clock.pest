@@ -1,11 +1,17 @@
-string = ${ "\"" ~ inner ~ "\"" }
+//helper
+WHITE_SPACE = _{" "|"\t"}
+COMMENT = _{"#" ~ (!(","|"\n") ~ ANY)*}
+Num = {"-"? ~ ASCII_DIGIT+ }
+
 StrInner = @{ char* }
 char = {
     !("\"" | "\\") ~ ANY
     | "\\" ~ ("\"" | "\\" | "/" | "b" | "f" | "n" | "r" | "t")
 }
 
-Word={LETTER+}
+Word={(LETTER|NUMBER)+}
+
+//core parts 
 
 Plusnum={ASCII_DIGIT+}
 Time=${Plusnum ~ ":" ~ Plusnum}
@@ -13,12 +19,15 @@ Clockout=${"-" ~ Time}
 ClockIO={ Time ~ "-" ~ Time} 
 Date = ${Plusnum ~ "/" ~ Plusnum ~ ("/" ~ Plusnum)?}
 
+NumSetter = {("="~Word ~ ":" ~ Num) | (Word ~ "=" ~ Num )}
 Tag = ${"_"~ Word}
-ClearTag = ${"__" ~ Word?}
-Job = {$("\"" ~ StrInner ~ "\"") | Word}
+ClearTags = ${"__" ~ Word?}
+Job = {("\"" ~ StrInner ~ "\"") | Word}
 
+//outer
 Record = {( Time | Clockout | ClockIO | Date |NumSetter| Tag| Job)}
 
+Main = {SOI ~ Record ~ ((","|"\n")+ ~ Record)* ~ EOI }
 
 
-WHITE_SPACE = _{" "|"\t"}
+

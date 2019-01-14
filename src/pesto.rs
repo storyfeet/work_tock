@@ -1,10 +1,9 @@
-use std::str::FromStr;
 use num::Num;
+use std::str::FromStr;
 
 use pest::iterators::Pair;
-use pest::Parser;
+//use pest::Parser;
 use pest_derive::*;
-
 
 use crate::err::TokErr;
 
@@ -20,7 +19,11 @@ pub trait Pestable: Sized {
     }
 }
 
-impl<T:Num> Pestable for T {
+impl<T> Pestable for T
+where
+    T: Num + FromStr,
+    TokErr: From<<T as FromStr>::Err>,
+{
     fn from_pesto(r: Pair<Rule>) -> Result<Self, TokErr> {
         match r.as_rule() {
             Rule::Plusnum => Ok(r.as_str().parse::<T>()?),
@@ -32,6 +35,7 @@ impl<T:Num> Pestable for T {
 #[cfg(test)]
 mod test {
     use super::*;
+    use pest::Parser;
     #[test]
     pub fn test_clock() {
         let t = TimeFile::parse(Rule::Time, "25:34")
@@ -40,7 +44,6 @@ mod test {
             .expect("Not sure what this one does");
         assert_eq!(t.as_rule(), Rule::Time);
         assert_eq!(t.as_str(), "25:34");
-        assert_eq!(t, "hello");
 
         println!("T is {}", t);
 

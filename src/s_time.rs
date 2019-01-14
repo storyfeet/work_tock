@@ -6,7 +6,7 @@ use std::str::FromStr;
 use pest::Parser;
 
 use crate::err::TokErr;
-use crate::pesto::TimeFile;
+use crate::pesto::{Pestable, Rule, TimeFile};
 
 #[derive(Copy, Clone, PartialEq, Eq, Add, Sub, AddAssign, SubAssign)]
 pub struct STime(i32); //minutes
@@ -21,15 +21,25 @@ impl STime {
     }
 }
 
+impl Pestable for STime {
+    fn from_pesto(p: pest::iterators::Pair<Rule>) -> Result<Self, TokErr> {
+        match p.as_rule() {
+            Rule::Time | Rule::Clockout => {}
+            v => return Err(TokErr::UnexpectedRule(v)),
+        }
+        let mut rc = p.into_inner();
+        Ok(STime::new(i32::from_pesto(rc.next().unwrap())?,i32::from_pesto(rc.next().unwrap())?
+        ))
+    }
+}
+
 impl FromStr for STime {
     type Err = TokErr;
     fn from_str(s: &str) -> Result<Self, TokErr> {
         let p = TimeFile::parse(crate::pesto::Rule::Time, s)?
             .next()
             .unwrap();
-
-        let mut rc = p.into_inner();
-        Ok(STime::new(rc.next().unwrap().as_str().parse()?, rc.next().unwrap().as_str().parse()?))
+        Self::from_pesto(p)
     }
 }
 
@@ -50,7 +60,9 @@ mod test {
     use super::*;
     #[test]
     pub fn test_stime_parse() {
-        assert!("243430343090349309309430334390:54".parse::<STime>().is_err());
+        assert!("243430343090349309309430334390:54"
+            .parse::<STime>()
+            .is_err());
         assert_eq!("24:54".parse(), Ok(STime::new(24, 54)));
     }
 }

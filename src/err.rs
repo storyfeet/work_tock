@@ -12,6 +12,7 @@ pub enum TokErr {
     ParseErr(pest::error::Error<pesto::Rule>),
     ParseIntErr,
     UnexpectedRule(pesto::Rule),
+    NoToken,
 }
 
 impl From<&str> for TokErr {

@@ -1,7 +1,9 @@
 use chrono::naive::NaiveDate;
+use pest::iterators::Pair;
 
 use crate::err::{must, TokErr};
 use crate::parse::{Token, Tokeniser};
+use crate::pesto::{Pestable, Rule};
 use crate::s_time::STime;
 
 #[derive(Debug)]
@@ -11,12 +13,30 @@ pub enum ClockAction {
     ClearTags,
     AddClockin(STime), // bool = is_in
     AddClockout(STime),
+    AddClockIO(STime, STime),
     SetJob(String),
-    SetDate(NaiveDate),
-    SetDayMonth(u32, u32),
+    SetDate(u32, u32, Option<i32>),
     SetNum(String, u32),
 }
 use self::ClockAction::*;
+
+impl Pestable for ClockAction {
+    fn from_pesto(r: Pair<Rule>) -> Result<Self, TokErr> {
+        match r.as_rule() {
+            Rule::Time => Ok(AddClockin(STime::from_pesto(r)?)),
+            Rule::Clockout => Ok(AddClockout(STime::from_pesto(r)?)),
+            Rule::ClockIO => {
+                let rc = r.into_inner();
+                Ok(AddClockIO(
+                    STime::from_pestopt(rc.next())?,
+                    STime::from_pestopt(rc.next())?,
+                ))
+            }
+
+            other => Err(TokErr::UnexpectedRule(other)),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Clockin {

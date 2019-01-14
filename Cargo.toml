@@ -11,3 +11,4 @@ derive_more = "0.13.0"
 
 pest = "2.0"
 pest_derive = "2.0"
+num = "0.2"

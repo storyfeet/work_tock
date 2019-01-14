@@ -28,7 +28,9 @@ impl Pestable for STime {
             v => return Err(TokErr::UnexpectedRule(v)),
         }
         let mut rc = p.into_inner();
-        Ok(STime::new(i32::from_pesto(rc.next().unwrap())?,i32::from_pesto(rc.next().unwrap())?
+        Ok(STime::new(
+            i32::from_pestopt(rc.next())?,
+            i32::from_pestopt(rc.next())?,
         ))
     }
 }

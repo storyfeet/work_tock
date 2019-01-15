@@ -7,10 +7,10 @@ use chrono::{Datelike, Weekday};
 
 mod clockin;
 use crate::clockin::Clockin;
-mod parse;
 mod s_time;
 use crate::s_time::STime;
 mod pesto;
+//use crate::pesto::{TimeFile,Rule};
 
 mod err;
 
@@ -31,8 +31,13 @@ fn main() -> Result<(), String> {
     let week = cfg
         .grab()
         .fg("-wk")
-        .help("Week Of Year: 1 to 53 or use '-' for this week")
+        .help("Week Of Year:Filter: 1 to 53 or use '-' for this week")
         .s();
+
+    let day = cfg
+        .grab()
+        .fg("-day")
+        .help("Day:Filter: as dd/mm/yy? use '-' for today").s();
 
     let out = cfg.grab().fg("-out").help("Clock Out").s();
 
@@ -97,6 +102,14 @@ fn main() -> Result<(), String> {
             ),
         };
         c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
+    }
+
+    if let Some(dt) = day {
+        if dt == "-"{
+            let dt = Local::today().naive_local();
+            c_io.retain(|(ind,_)| ind.date == dt);
+        }
+        //Todo 
     }
 
     //build report

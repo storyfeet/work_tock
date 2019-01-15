@@ -1,15 +1,9 @@
-use crate::parse::Token;
 use crate::pesto;
 
 #[derive(Debug, PartialEq)]
 pub enum TokErr {
     Mess(String),
     NotSet(&'static str),
-    NotNum(Token),
-    NotString(Token),
-    UnexpectedEOF,
-    EOF, //Don't like this,
-    MustFail(String),
     ParseErr(pest::error::Error<pesto::Rule>),
     ParseIntErr,
     UnexpectedRule(pesto::Rule),
@@ -37,13 +31,5 @@ impl From<pest::error::Error<pesto::Rule>> for TokErr {
 impl From<std::num::ParseIntError> for TokErr {
     fn from(_: std::num::ParseIntError) -> Self {
         TokErr::ParseIntErr
-    }
-}
-
-pub fn must(b: bool, s: &str) -> Result<(), TokErr> {
-    if b {
-        Ok(())
-    } else {
-        Err(TokErr::MustFail(s.to_string()))
     }
 }

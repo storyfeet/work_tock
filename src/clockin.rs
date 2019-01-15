@@ -1,9 +1,9 @@
 use chrono::naive::NaiveDate;
-use pest::Parser;
 use pest::iterators::Pair;
+use pest::Parser;
 
 use crate::err::TokErr;
-use crate::pesto::{TimeFile,Pestable, Rule};
+use crate::pesto::{Pestable, Rule, TimeFile};
 use crate::s_time::STime;
 
 #[derive(Debug)]
@@ -50,23 +50,29 @@ impl Pestable for ClockAction {
                     .as_str()
                     .to_string(),
             )),
-            Rule::ClearTags =>Ok(ClearTags( r.into_inner().next().map(|p|p.as_str().to_string()))),
-            Rule::Job =>{
-                let inner = r.into_inner().next().expect("Job should always have an Inner");
+            Rule::ClearTags => Ok(ClearTags(
+                r.into_inner().next().map(|p| p.as_str().to_string()),
+            )),
+            Rule::Job => {
+                let inner = r
+                    .into_inner()
+                    .next()
+                    .expect("Job should always have an Inner");
                 //Consider de-escaping should not be an issue
                 Ok(SetJob(inner.as_str().to_string()))
             }
             Rule::NumSetter => {
                 let mut rc = r.into_inner();
                 Ok(SetNum(
-                        rc.next().expect("NumSet should always have 2 children").as_str().to_string(),
-                i32::from_pestopt(rc.next())?
+                    rc.next()
+                        .expect("NumSet should always have 2 children")
+                        .as_str()
+                        .to_string(),
+                    i32::from_pestopt(rc.next())?,
                 ))
-
             }
 
             other => Err(TokErr::UnexpectedRule(other)),
-
         }
     }
 }
@@ -87,22 +93,43 @@ pub struct InData {
 
 pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
     //TODO, seriously
-    
-    let job = "General".to_string();
-    
-    let p = match TimeFile::parse(Rule::Main,s){
-        Ok(mut p)=>p.next().expect("Root should always have one child"),
-        Err(e)=>return (Vec::new(),vec![ TokErr::ParseErr(e)]),
+
+    let mut job = "General".to_string();
+    let mut tags = Vec::new();
+    let mut date = NaiveDate::from_ymd(1, 1, 1); //consider changing
+
+    let p = match TimeFile::parse(Rule::Main, s) {
+        Ok(mut p) => p.next().expect("Root should always have one child"),
+        Err(e) => return (Vec::new(), vec![TokErr::ParseErr(e)]),
     };
 
-    for record in p.into_inner(){
-        println!("Record {:?}",record);
+    let mut res = Vec::new();
+    let mut errs = Vec::new();
 
+    for record in p.into_inner() {
+        if record.as_rule() == Rule::EOI {
+            continue;
+        }
+        println!("Record {:?}", record);
+        let pr = record
+            .into_inner()
+            .next()
+            .expect("Record should always have exactly one child");
+        match pr.as_rule() {
+            Rule::Word => job = pr.as_str().to_string(),
+            Rule::Time => match STime::from_pesto(pr) {
+                Ok(time) => res.push(Clockin::In(InData {
+                    time,
+                    job: job.clone(),
+                    tags: tags.clone(),
+                    date,
+                })),
+                Err(e) => errs.push(e),
+            },
 
+            other => errs.push(TokErr::UnexpectedRule(other)),
+        }
     }
 
-    
-
-    
-    (Vec::new(), Vec::new())
+    (res, errs)
 }

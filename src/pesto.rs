@@ -52,4 +52,19 @@ mod test {
 
         assert_eq!(rc.next().expect("Or this one").as_str(), "25");
     }
+
+    #[test]
+    fn test_clockio() {
+        let t = TimeFile::parse(Rule::ClockIO, "19:23-22:23")
+            .unwrap()
+            .next()
+            .unwrap();
+
+        let t2 = TimeFile::parse(Rule::Record, "19:23-22:23")
+            .unwrap()
+            .next()
+            .unwrap();
+
+        assert_eq!(t2.into_inner().next(), Some(t));
+    }
 }

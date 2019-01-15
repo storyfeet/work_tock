@@ -1,5 +1,5 @@
 //helper
-WHITE_SPACE = _{" "|"\t"}
+WHITESPACE = _{" "|"\t"}
 COMMENT = _{"#" ~ (!(","|"\n") ~ ANY)*}
 Num = {"-"? ~ ASCII_DIGIT+ }
 
@@ -25,9 +25,9 @@ ClearTags = ${"__" ~ Word?}
 Job = {("\"" ~ StrInner ~ "\"") | Word}
 
 //outer
-Record = {( Time | Clockout | ClockIO | Date |NumSetter| Tag| Job)}
+Record = {( ClockIO| Time | Clockout | Date |NumSetter | ClearTags| Tag| Job)}
 
-Main = {SOI ~ Record ~ ((","|"\n")+ ~ Record)* ~ EOI }
+Main = {SOI ~ Record ~ ((","|"\n")+ ~ Record)* ~ (","|"\n")? ~ EOI }
 
 
 

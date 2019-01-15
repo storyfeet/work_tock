@@ -4,6 +4,7 @@ use crate::pesto;
 #[derive(Debug, PartialEq)]
 pub enum TokErr {
     Mess(String),
+    NotSet(&'static str),
     NotNum(Token),
     NotString(Token),
     UnexpectedEOF,

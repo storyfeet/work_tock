@@ -26,7 +26,7 @@ where
 {
     fn from_pesto(r: Pair<Rule>) -> Result<Self, TokErr> {
         match r.as_rule() {
-            Rule::Plusnum => Ok(r.as_str().parse::<T>()?),
+            Rule::Num | Rule::Plusnum => Ok(r.as_str().parse::<T>()?),
             other => Err(TokErr::UnexpectedRule(other)),
         }
     }

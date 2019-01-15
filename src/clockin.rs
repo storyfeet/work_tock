@@ -10,9 +10,9 @@ use crate::s_time::STime;
 pub enum ClockAction {
     AddTag(String),
     ClearTags(Option<String>), //replacement tag
-    AddClockin(STime),         // bool = is_in
-    AddClockout(STime),
-    AddClockIO(STime, STime),
+    In(STime),
+    Out(STime),
+    InOut(STime, STime),
     SetJob(String),
     SetDate(u32, u32, Option<i32>),
     SetNum(String, i32),
@@ -22,11 +22,11 @@ use self::ClockAction::*;
 impl Pestable for ClockAction {
     fn from_pesto(r: Pair<Rule>) -> Result<Self, TokErr> {
         match r.as_rule() {
-            Rule::Time => Ok(AddClockin(STime::from_pesto(r)?)),
-            Rule::Clockout => Ok(AddClockout(STime::from_pesto(r)?)),
+            Rule::Time => Ok(In(STime::from_pesto(r)?)),
+            Rule::Clockout => Ok(Out(STime::from_pesto(r)?)),
             Rule::ClockIO => {
                 let mut rc = r.into_inner();
-                Ok(AddClockIO(
+                Ok(InOut(
                     STime::from_pestopt(rc.next())?,
                     STime::from_pestopt(rc.next())?,
                 ))
@@ -97,6 +97,7 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
     let mut job = "General".to_string();
     let mut tags = Vec::new();
     let mut date = NaiveDate::from_ymd(1, 1, 1); //consider changing
+    let mut year: Option<i32> = None;
 
     let p = match TimeFile::parse(Rule::Main, s) {
         Ok(mut p) => p.next().expect("Root should always have one child"),
@@ -110,24 +111,40 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
         if record.as_rule() == Rule::EOI {
             continue;
         }
-        println!("Record {:?}", record);
-        let pr = record
-            .into_inner()
-            .next()
-            .expect("Record should always have exactly one child");
-        match pr.as_rule() {
-            Rule::Word => job = pr.as_str().to_string(),
-            Rule::Time => match STime::from_pesto(pr) {
-                Ok(time) => res.push(Clockin::In(InData {
-                    time,
+        match ClockAction::from_pestopt(record.into_inner().next()) {
+            Ok(SetJob(j)) => job = j,
+            Ok(SetDate(d, m, Some(y))) => date = NaiveDate::from_ymd(y, m, d),
+            Ok(SetDate(d, m, None)) => match year {
+                Some(y) => date = NaiveDate::from_ymd(y, m, d),
+                None => errs.push(TokErr::NotSet("date")),
+            },
+            Ok(AddTag(s)) => tags.push(s.clone()),
+            Ok(ClearTags(Some(s))) => tags = vec![s],
+            Ok(ClearTags(None)) => tags.clear(),
+            Ok(SetNum(k, v)) => {
+                if &k == "year" {
+                    year = Some(v);
+                }
+            }
+            Ok(In(time)) => res.push(Clockin::In(InData {
+                time,
+                job: job.clone(),
+                tags: tags.clone(),
+                date,
+            })),
+
+            Ok(Out(time)) => res.push(Clockin::Out(time)),
+            Ok(InOut(tin, tout)) => {
+                res.push(Clockin::In(InData {
+                    time: tin,
                     job: job.clone(),
                     tags: tags.clone(),
                     date,
-                })),
-                Err(e) => errs.push(e),
-            },
+                }));
+                res.push(Clockin::Out(tout));
+            }
 
-            other => errs.push(TokErr::UnexpectedRule(other)),
+            Err(e) => errs.push(e),
         }
     }
 

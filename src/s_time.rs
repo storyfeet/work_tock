@@ -24,14 +24,16 @@ impl STime {
 impl Pestable for STime {
     fn from_pesto(p: pest::iterators::Pair<Rule>) -> Result<Self, TokErr> {
         match p.as_rule() {
-            Rule::Time | Rule::Clockout => {}
-            v => return Err(TokErr::UnexpectedRule(v)),
+            Rule::Time => {
+                let mut rc = p.into_inner();
+                Ok(STime::new(
+                    i32::from_pestopt(rc.next())?,
+                    i32::from_pestopt(rc.next())?,
+                ))
+            }
+            Rule::Clockout => STime::from_pestopt(p.into_inner().next()),
+            v => Err(TokErr::UnexpectedRule(v)),
         }
-        let mut rc = p.into_inner();
-        Ok(STime::new(
-            i32::from_pestopt(rc.next())?,
-            i32::from_pestopt(rc.next())?,
-        ))
     }
 }
 

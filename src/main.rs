@@ -6,7 +6,7 @@ use chrono::offset::Local;
 use chrono::{Datelike, Weekday};
 
 mod clockin;
-use crate::clockin::Clockin;
+use crate::clockin::{Clockin,ClockAction};
 mod s_time;
 use crate::s_time::STime;
 mod pesto;
@@ -28,18 +28,23 @@ fn main() -> Result<(), String> {
 
     //general options
 
-    let week = cfg
+    let week_fil = cfg
         .grab()
         .fg("-wk")
-        .help("Week Of Year:Filter: 1 to 53 or use '-' for this week")
+        .help("Filter -- Week Of Year: 1 to 53 or use '-' for this week")
         .s();
 
-    let day = cfg
+    let day_fil = cfg
         .grab()
         .fg("-day")
-        .help("Day:Filter: as dd/mm/yy? use '-' for today").s();
+        .help("Filter -- Day: as dd/mm/yy? use '-' for today")
+        .s();
+
+    let job_fil = cfg.grab().fg("-job").help("Filter -- Job").s();
 
     let out = cfg.grab().fg("-out").help("Clock Out").s();
+
+    let c_in = cfg.grab().fg("-in").help("Clock In").s();
 
     if cfg.help("Work Tock") {
         return Ok(());
@@ -87,9 +92,11 @@ fn main() -> Result<(), String> {
         c_io.push((data.clone(), STime::now()));
     }
 
+    let (last) = c_io.get(c_io.len()-1).map(|x|x.clone());
+
     //filter.
 
-    if let Some(wks) = week {
+    if let Some(wks) = week_fil {
         let dt = Local::today();
         let (st, fin) = match wks.parse::<u32>() {
             Ok(n) => (
@@ -104,12 +111,16 @@ fn main() -> Result<(), String> {
         c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
     }
 
-    if let Some(dt) = day {
-        if dt == "-"{
+    if let Some(dt) = day_fil {
+        if dt == "-" {
             let dt = Local::today().naive_local();
-            c_io.retain(|(ind,_)| ind.date == dt);
+            c_io.retain(|(ind, _)| ind.date == dt);
         }
-        //Todo 
+        //Todo
+    }
+
+    if let Some(jb) = job_fil {
+        c_io.retain(|(ind, _)| ind.job == jb);
     }
 
     //build report
@@ -139,6 +150,23 @@ fn main() -> Result<(), String> {
         } else {
             println!("Cannot clock out, if not clocked in");
         }
+    }
+
+    if let Some(istr) = c_in {
+        let mut new_date = Local::today().naive_local();
+        let mut new_time = STime::now();
+        let mut new_job:Option<String> = None;
+        let (acs,errs) = clockin::read_clock_actions(&istr);
+        for ac in acs {
+            match ac{
+                ClockAction::In(t)=>new_time = t,
+                ClockAction::SetJob(j)=>new_job = Some(j),
+                ClockAction::SetDate(d,m,Some(y)) =>new_date = NaiveDate::from_ymd(y,m,d),
+                _=>{},//probly need to handle this
+            }
+        }
+        //TODO add the bit that makes this print the bit on the end
+
     }
 
     Ok(())

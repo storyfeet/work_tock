@@ -91,14 +91,7 @@ pub struct InData {
     pub tags: Vec<String>,
 }
 
-pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
-    //TODO, seriously
-
-    let mut job = "General".to_string();
-    let mut tags = Vec::new();
-    let mut date = NaiveDate::from_ymd(1, 1, 1); //consider changing
-    let mut year: Option<i32> = None;
-
+pub fn read_clock_actions(s: &str) -> (Vec<ClockAction>, Vec<TokErr>) {
     let p = match TimeFile::parse(Rule::Main, s) {
         Ok(mut p) => p.next().expect("Root should always have one child"),
         Err(e) => return (Vec::new(), vec![TokErr::ParseErr(e)]),
@@ -112,29 +105,48 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
             continue;
         }
         match ClockAction::from_pestopt(record.into_inner().next()) {
-            Ok(SetJob(j)) => job = j,
-            Ok(SetDate(d, m, Some(y))) => date = NaiveDate::from_ymd(y, m, d),
-            Ok(SetDate(d, m, None)) => match year {
+            Ok(v) => res.push(v),
+            Err(e) => errs.push(e),
+        }
+    }
+    (res, errs)
+}
+
+pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
+    let mut job = "General".to_string();
+    let mut tags = Vec::new();
+    let mut date = NaiveDate::from_ymd(1, 1, 1); //consider changing
+    let mut year: Option<i32> = None;
+
+    let mut res = Vec::new();
+
+    let (c_ac, mut errs) = read_clock_actions(s);
+
+    for ac in c_ac {
+        match ac {
+            SetJob(j) => job = j,
+            SetDate(d, m, Some(y)) => date = NaiveDate::from_ymd(y, m, d),
+            SetDate(d, m, None) => match year {
                 Some(y) => date = NaiveDate::from_ymd(y, m, d),
                 None => errs.push(TokErr::NotSet("date")),
             },
-            Ok(AddTag(s)) => tags.push(s.clone()),
-            Ok(ClearTags(Some(s))) => tags = vec![s],
-            Ok(ClearTags(None)) => tags.clear(),
-            Ok(SetNum(k, v)) => {
+            AddTag(s) => tags.push(s.clone()),
+            ClearTags(Some(s)) => tags = vec![s],
+            ClearTags(None) => tags.clear(),
+            SetNum(k, v) => {
                 if &k == "year" {
                     year = Some(v);
                 }
             }
-            Ok(In(time)) => res.push(Clockin::In(InData {
+            In(time) => res.push(Clockin::In(InData {
                 time,
                 job: job.clone(),
                 tags: tags.clone(),
                 date,
             })),
 
-            Ok(Out(time)) => res.push(Clockin::Out(time)),
-            Ok(InOut(tin, tout)) => {
+            Out(time) => res.push(Clockin::Out(time)),
+            InOut(tin, tout) => {
                 res.push(Clockin::In(InData {
                     time: tin,
                     job: job.clone(),
@@ -143,8 +155,6 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
                 }));
                 res.push(Clockin::Out(tout));
             }
-
-            Err(e) => errs.push(e),
         }
     }
 

@@ -6,7 +6,7 @@ use chrono::offset::Local;
 use chrono::{Datelike, Weekday};
 
 mod clockin;
-use crate::clockin::{Clockin,ClockAction};
+use crate::clockin::{ClockAction, Clockin};
 mod s_time;
 use crate::s_time::STime;
 mod pesto;
@@ -92,7 +92,7 @@ fn main() -> Result<(), String> {
         c_io.push((data.clone(), STime::now()));
     }
 
-    let (last) = c_io.get(c_io.len()-1).map(|x|x.clone());
+    let last = c_io.get(c_io.len() - 1).map(|x| x.clone());
 
     //filter.
 
@@ -155,18 +155,52 @@ fn main() -> Result<(), String> {
     if let Some(istr) = c_in {
         let mut new_date = Local::today().naive_local();
         let mut new_time = STime::now();
-        let mut new_job:Option<String> = None;
-        let (acs,errs) = clockin::read_clock_actions(&istr);
-        for ac in acs {
-            match ac{
-                ClockAction::In(t)=>new_time = t,
-                ClockAction::SetJob(j)=>new_job = Some(j),
-                ClockAction::SetDate(d,m,Some(y)) =>new_date = NaiveDate::from_ymd(y,m,d),
-                _=>{},//probly need to handle this
+        let mut new_job: Option<String> = None;
+        let (acs, errs) = clockin::read_clock_actions(&istr);
+        if errs.len() > 0 {
+            println!("Clockin format errors : {:?}", errs);
+        } else {
+            for ac in acs {
+                match ac {
+                    ClockAction::In(t) => new_time = t,
+                    ClockAction::SetJob(j) => new_job = Some(j),
+                    ClockAction::SetDate(d, m, Some(y)) => new_date = NaiveDate::from_ymd(y, m, d),
+                    ClockAction::SetDate(d, m, None) => {
+                        new_date = match last {
+                            Some(ref l) => NaiveDate::from_ymd(l.0.date.year(), m, d),
+                            None => NaiveDate::from_ymd(new_date.year(), m, d),
+                        }
+                    }
+                    other => println!("Option not handled {:?}", other),
+                }
             }
-        }
-        //TODO add the bit that makes this print the bit on the end
+            let mut line = "".to_string();
+            if let Some(ref l) = last {
+                if new_date != l.0.date {
+                    line.push_str(&new_date.format("%d/%m/%Y,").to_string());
+                }
+                if let Some(ref nj) = new_job {
+                    if *nj != l.0.job {
+                        line.push_str(nj);
+                        line.push(',');
+                    }
+                }
+            } else {
+                line.push_str(&new_date.format("%d/%m/%Y,").to_string());
+                if let Some(ref nj) = new_job {
+                    line.push_str(nj);
+                    line.push(',');
+                }
+            }
 
+            line.push_str(&new_time.to_string());
+            println!("Adding: {}", line);
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&fname)
+                .map_err(|e| format!("{:?}", e))?;
+            writeln!(f, "{}", line).map_err(|e| format!("{:?}", e))?;
+        }
     }
 
     Ok(())

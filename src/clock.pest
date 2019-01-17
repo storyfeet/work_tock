@@ -27,7 +27,7 @@ Job = {("\"" ~ StrInner ~ "\"") | Word}
 //outer
 Record = {( ClockIO| Time | Clockout | Date |NumSetter | ClearTags| Tag| Job)}
 
-Main = {SOI ~ Record ~ ((","|"\n")+ ~ Record)* ~ (","|"\n")? ~ EOI }
+Main = {SOI ~ Record? ~ ((","|"\n")+ ~ Record)* ~ (","|"\n")? ~ EOI }
 
 
 

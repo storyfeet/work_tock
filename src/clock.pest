@@ -10,6 +10,7 @@ char = {
 }
 
 Word={(LETTER|NUMBER)+}
+Words=${Word ~ (" " ~ Word)*}
 
 //core parts 
 
@@ -20,8 +21,8 @@ ClockIO={ Time ~ "-" ~ Time}
 Date = ${Plusnum ~ "/" ~ Plusnum ~ ("/" ~ Plusnum)?}
 
 NumSetter = {("="~Word ~ ":" ~ Num) | (Word ~ "=" ~ Num )}
-Tag = ${"_"~ Word}
-ClearTags = ${"__" ~ Word?}
+Tag = ${"_"~ Words}
+ClearTags = ${"__" ~ Words?}
 Job = {("\"" ~ StrInner ~ "\"") | Word}
 
 //outer

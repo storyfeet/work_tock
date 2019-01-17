@@ -42,6 +42,8 @@ fn main() -> Result<(), String> {
 
     let job_fil = cfg.grab().fg("-job").help("Filter -- Job").s();
 
+    let tag_fil = cfg.grab().fg("-tag").help("Filter -- tag").s();
+
     let out = cfg.grab().fg("-out").help("Clock Out").s();
 
     let c_in = cfg.grab().fg("-in").help("Clock In").s();
@@ -123,6 +125,10 @@ fn main() -> Result<(), String> {
         c_io.retain(|(ind, _)| ind.job == jb);
     }
 
+    if let Some(tg) = tag_fil {
+        c_io.retain(|(ind,_)| ind.tags.contains(&tg));
+    }
+
     //build report
     let mut r_times: BTreeMap<String, STime> = BTreeMap::new();
     let mut t_time = STime::new(0, 0);
@@ -145,7 +151,7 @@ fn main() -> Result<(), String> {
                 .open(&fname)
                 .map_err(|e| format!("{:?}", e))?;
             let now = STime::now();
-            write!(f, "-{}", now).map_err(|e| format!("{:?}", e))?;
+            writeln!(f, "-{}", now).map_err(|e| format!("{:?}", e))?;
             println!("You are now Clocked out at {}", now);
         } else {
             println!("Cannot clock out, if not clocked in");

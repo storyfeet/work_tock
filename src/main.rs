@@ -48,6 +48,12 @@ fn main() -> Result<(), String> {
 
     let c_in = cfg.grab().fg("-in").help("Clock In").s();
 
+    let do_print = cfg
+        .grab()
+        .fg("-p")
+        .help("Print out filtered results NO_ARGS")
+        .is_present();
+
     if cfg.help("Work Tock") {
         return Ok(());
     }
@@ -126,7 +132,7 @@ fn main() -> Result<(), String> {
     }
 
     if let Some(tg) = tag_fil {
-        c_io.retain(|(ind,_)| ind.tags.contains(&tg));
+        c_io.retain(|(ind, _)| ind.tags.contains(&tg));
     }
 
     //build report
@@ -137,8 +143,12 @@ fn main() -> Result<(), String> {
             .get(&idat.job)
             .map(|x| *x)
             .unwrap_or(STime::new(0, 0));
-        r_times.insert(idat.job, tt + otime - idat.time);
         t_time += otime - idat.time;
+        if do_print {
+            //maybe move out later
+            println!("{}: {}-{} = {}", idat.job, idat.time, otime, t_time);
+        }
+        r_times.insert(idat.job, tt + otime - idat.time);
     }
 
     println!("{:?}", r_times);

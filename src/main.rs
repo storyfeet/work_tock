@@ -14,6 +14,13 @@ mod pesto;
 
 mod err;
 
+fn append_to(fname: &str) -> Result<std::fs::File, String> {
+    std::fs::OpenOptions::new()
+        .append(true)
+        .open(&fname)
+        .map_err(|e| format!("{:?}", e))
+}
+
 fn main() -> Result<(), String> {
     let mut cfg = lazy_conf::config("-c", &["{HOME}/.config/work_tock/init"])
         .map_err(|_| "Wierd Arguments")?;
@@ -154,15 +161,19 @@ fn main() -> Result<(), String> {
     println!("{:?}", r_times);
     println!("Total Time = {}", t_time);
 
-    if let Some(_) = out {
+    if cfg.grab().fg("-out").is_present() {
         if let Some(_data) = curr {
-            let mut f = std::fs::OpenOptions::new()
-                .append(true)
-                .open(&fname)
-                .map_err(|e| format!("{:?}", e))?;
-            let now = STime::now();
-            writeln!(f, "-{}", now).map_err(|e| format!("{:?}", e))?;
-            println!("You are now Clocked out at {}", now);
+            match out.as_ref().map(|s| s.as_str()) {
+                Some("-") | None => {
+                    let now = STime::now();
+                    let mut f = append_to(&fname)?;
+                    writeln!(f, "-{}", now).map_err(|e| format!("{:?}", e))?;
+                    println!("You are now Clocked out at {}", now);
+                }
+                Some(v) => {
+                    println!("Cannot Clock out at \"{}\"", v);
+                }
+            }
         } else {
             println!("Cannot clock out, if not clocked in");
         }
@@ -211,10 +222,7 @@ fn main() -> Result<(), String> {
 
             line.push_str(&new_time.to_string());
             println!("Adding: {}", line);
-            let mut f = std::fs::OpenOptions::new()
-                .append(true)
-                .open(&fname)
-                .map_err(|e| format!("{:?}", e))?;
+            let mut f = append_to(&fname)?;
             writeln!(f, "{}", line).map_err(|e| format!("{:?}", e))?;
         }
     }

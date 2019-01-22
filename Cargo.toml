@@ -3,9 +3,11 @@ name = "work_tock"
 version = "0.1.0"
 authors = ["storyfeet <thebeaky@psmail.net>"]
 edition = "2018"
+keywords = ["clockin","work","timesheet"]
+license = "MIT"
 
 [dependencies]
-lazy_conf = {path = "../../mlibs/lazy_conf"}
+lazy_conf = "0.1.1"
 chrono = "0.4.6"
 derive_more = "0.13.0"
 

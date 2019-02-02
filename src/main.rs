@@ -174,6 +174,7 @@ fn main() -> Result<(), TokErr> {
     //build report
     let mut r_times: BTreeMap<String, STime> = BTreeMap::new();
     let mut t_time = STime::new(0, 0);
+    let mut last_dat = NaiveDate::from_ymd(1,1,1);
     for (idat, otime) in c_io {
         let tt = r_times
             .get(&idat.job)
@@ -182,7 +183,11 @@ fn main() -> Result<(), TokErr> {
         t_time += otime - idat.time;
         if do_print {
             //maybe move out later
-            println!("{}: {}-{} = {} => {}", idat.job, idat.time, otime, otime - idat.time, t_time);
+            if last_dat != idat.date {
+                println!("{}",idat.date.format("%Y/%m/%d"));
+                last_dat = idat.date;
+            }
+            println!("  {}: {}-{} = {}   => {}", idat.job, idat.time, otime, otime - idat.time, t_time);
         }
         r_times.insert(idat.job, tt + otime - idat.time);
     }

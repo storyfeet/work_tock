@@ -11,6 +11,7 @@ license = "MIT"
 lazy_conf = "0.1.1"
 chrono = "0.4.6"
 derive_more = "0.13.0"
+clap = "2.32.0"
 
 pest = "2.0"
 pest_derive = "2.0"

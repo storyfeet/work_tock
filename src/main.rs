@@ -6,6 +6,7 @@ use chrono::naive::NaiveDate;
 use chrono::offset::Local;
 use chrono::{Datelike, Weekday};
 
+use clap::clap_app;
 mod clockin;
 use crate::clockin::{ClockAction, Clockin};
 mod s_time;
@@ -27,20 +28,31 @@ fn main() -> Result<(), TokErr> {
     let mut cfg = lazy_conf::config("-c", &["{HOME}/.config/work_tock/init"])
         .map_err(|_| "Wierd Arguments")?;
 
+    //note this currently runs as filter will eventually replace lazyconf, but only bit at a time
+    let matches = clap_app!(
+        work_tock=>
+            (version: clap::crate_version!())
+            (author: "Matthew Stoodley")
+            (about: "Clock in and out of work")
+            (@arg conf: -c "Config File") //allow lazyconf config loader to work
+            (@arg file: -f --file +takes_value "Filename")
+            (@arg week:  --week +takes_value "Filter by Week.")
+            (@arg this_week: -w "Filter by this week")
+            //(@arg on_date: --date +takes_value "Filter by date.")
+            (@arg today: -t "Filter by Today")
+            (@arg print: -p "Print Filtered Results nicely")
+            (@arg clockin: -i --in +takes_value "Clock in")
+            (@arg clockout: -o --out "Clock out Now")
+            (@arg clockoutat: --outat +takes_value "Clock out at given time")
+            (@arg job: --job +takes_value "Filter by Job")
+    )
+    .get_matches();
+
     //core options
     let fname = cfg
         .grab()
-        .fg("-f")
         .cf("config.file")
         .help("Filename: what file to look at")
-        .s();
-
-    //general options
-
-    let week_fil = cfg
-        .grab()
-        .fg("-wk")
-        .help("Filter -- Week Of Year: 1 to 53 or use '-' for this week")
         .s();
 
     let month_fil = cfg
@@ -50,32 +62,17 @@ fn main() -> Result<(), TokErr> {
         .help("Filter -- Month of Year: 1 to 12")
         .s();
 
-    let day_fil = cfg
-        .grab()
-        .fg("-day")
-        .help("Filter -- Day: as dd/mm/yy? use '-' for today")
-        .s();
-
-    let job_fil = cfg.grab().fg("-job").help("Filter -- Job").s();
-
     let tag_fil = cfg.grab().fg("-tag").help("Filter -- tag").s();
-
-    let out = cfg.grab().fg("-out").help("Clock Out").s();
-
-    let c_in = cfg.grab().fg("-in").help("Clock In").s();
-
-    let do_print = cfg
-        .grab()
-        .fg("-p")
-        .help("Print out filtered results NO_ARGS")
-        .is_present();
 
     if cfg.help("Work Tock") {
         return Ok(());
     }
 
-    let fname = lazy_conf::env::replace_env(&fname.ok_or("No Filename provided use -f")?)
-        .map_err(|_| "could not env replace")?;
+    //mashing two systems together not so fun
+    let fname = matches.value_of("file").map(|s| s.to_string()).unwrap_or(
+        lazy_conf::env::replace_env(&fname.ok_or("No Filename provided use -f")?)
+            .map_err(|_| "no env")?,
+    );
 
     let s =
         std::fs::read_to_string(&fname).map_err(|_| format!("Could not read file: {}", fname))?;
@@ -120,50 +117,54 @@ fn main() -> Result<(), TokErr> {
 
     //filter.
 
-    if let Some(wks) = week_fil {
+    if matches.is_present("this_week") {
         let dt = Local::today();
-        let (st, fin) = match wks.parse::<u32>() {
-            Ok(n) => (
-                NaiveDate::from_isoywd(dt.year(), n, Weekday::Mon),
-                NaiveDate::from_isoywd(dt.year(), n, Weekday::Sun),
-            ),
-            Err(_) => (
-                NaiveDate::from_isoywd(dt.year(), dt.iso_week().week(), Weekday::Mon),
-                NaiveDate::from_isoywd(dt.year(), dt.iso_week().week(), Weekday::Sun),
-            ),
-        };
+        let wk = dt.iso_week().week();
+        let st = NaiveDate::from_isoywd(dt.year(), dt.iso_week().week(), Weekday::Mon);
+        let fin = NaiveDate::from_isoywd(dt.year(), dt.iso_week().week(), Weekday::Sun);
+        println!("Filtering by week {}", wk);
         c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
     }
 
+    if let Some(wks) = matches.value_of("week") {
+        let dt = Local::today();
+        let wk = wks
+            .parse::<u32>()
+            .map_err(|_| "Could not parse week value")?;
+        let st = NaiveDate::from_isoywd(dt.year(), wk, Weekday::Mon);
+        let fin = NaiveDate::from_isoywd(dt.year(), wk, Weekday::Sun);
+        println!("Filtering by week {}", wk);
+        c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
+    }
 
     //local closure for month filter
-    let month_s_fin = |yr,m|{
+    let month_s_fin = |yr, m| {
         (
-            NaiveDate::from_ymd(yr,m,1),
-        match m{
-            12=>NaiveDate::from_ymd(yr+1,1,1),
-            _=>NaiveDate::from_ymd(yr,m+1,1),
-        })
+            NaiveDate::from_ymd(yr, m, 1),
+            match m {
+                12 => NaiveDate::from_ymd(yr + 1, 1, 1),
+                _ => NaiveDate::from_ymd(yr, m + 1, 1),
+            },
+        )
     };
 
-    if let Some(mth) = month_fil{
+    if let Some(mth) = month_fil {
         let dt = Local::today();
-        let (st,fin) = match mth.parse::<u32>(){
-            Ok(n)=>month_s_fin(dt.year(),n),
-            Err(_)=>month_s_fin(dt.year(),dt.month()),
+        let (st, fin) = match mth.parse::<u32>() {
+            Ok(n) => month_s_fin(dt.year(), n),
+            Err(_) => month_s_fin(dt.year(), dt.month()),
         };
         c_io.retain(|(ind, _)| ind.date >= st && ind.date < fin);
     }
 
-    if let Some(dt) = day_fil {
-        if dt == "-" {
-            let dt = Local::today().naive_local();
-            c_io.retain(|(ind, _)| ind.date == dt);
-        }
-        //Todo
+    //TODO filter by given date
+    if matches.is_present("today") {
+        let dt = Local::today().naive_local();
+        println!("Filtering by Today");
+        c_io.retain(|(ind, _)| ind.date == dt);
     }
 
-    if let Some(jb) = job_fil {
+    if let Some(jb) = matches.value_of("job") {
         c_io.retain(|(ind, _)| ind.job == jb);
     }
 
@@ -174,20 +175,27 @@ fn main() -> Result<(), TokErr> {
     //build report
     let mut r_times: BTreeMap<String, STime> = BTreeMap::new();
     let mut t_time = STime::new(0, 0);
-    let mut last_dat = NaiveDate::from_ymd(1,1,1);
+    let mut last_dat = NaiveDate::from_ymd(1, 1, 1);
     for (idat, otime) in c_io {
         let tt = r_times
             .get(&idat.job)
             .map(|x| *x)
             .unwrap_or(STime::new(0, 0));
         t_time += otime - idat.time;
-        if do_print {
+        if matches.is_present("print") {
             //maybe move out later
             if last_dat != idat.date {
-                println!("{}",idat.date.format("%Y/%m/%d"));
+                println!("{}", idat.date.format("%Y/%m/%d"));
                 last_dat = idat.date;
             }
-            println!("  {}: {}-{} = {}   => {}", idat.job, idat.time, otime, otime - idat.time, t_time);
+            println!(
+                "  {}: {}-{} = {}   => {}",
+                idat.job,
+                idat.time,
+                otime,
+                otime - idat.time,
+                t_time
+            );
         }
         r_times.insert(idat.job, tt + otime - idat.time);
     }
@@ -195,19 +203,23 @@ fn main() -> Result<(), TokErr> {
     println!("\n{:?}\n", r_times);
     println!("Total Time = {}", t_time);
 
-    if cfg.grab().fg("-out").is_present() {
-        let _data = curr.ok_or("Cannot clock out if not clocked it")?;
-        let otime = match out.as_ref().map(|s| s.as_str()) {
-            Some("-") | None => STime::now(),
-
-            Some(v) => STime::from_str(v)?,
-        };
+    if matches.is_present("clockout") {
+        let _data = curr.as_ref().ok_or("Cannot clock out if not clocked it")?;
+        let otime = STime::now();
         let mut f = append_to(&fname)?;
         writeln!(f, "-{}", otime).map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
-    if let Some(istr) = c_in {
+    if let Some(tm) = matches.value_of("clockoutat") {
+        let _data = curr.ok_or("Cannot clock out if not clocked in")?;
+        let otime = STime::from_str(tm)?;
+        let mut f = append_to(&fname)?;
+        writeln!(f, "-{}", otime).map_err(|e| format!("{:?}", e))?;
+        println!("You are now Clocked out at {}", otime);
+    }
+
+    if let Some(istr) = matches.value_of("clockin") {
         let mut new_date = Local::today().naive_local();
         let mut new_time = STime::now();
         let mut new_job: Option<String> = None;

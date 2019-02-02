@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 use std::io::Write;
+use std::str::FromStr;
 
 use chrono::naive::NaiveDate;
 use chrono::offset::Local;
@@ -13,6 +14,7 @@ mod pesto;
 //use crate::pesto::{TimeFile,Rule};
 
 mod err;
+use err::TokErr;
 
 fn append_to(fname: &str) -> Result<std::fs::File, String> {
     std::fs::OpenOptions::new()
@@ -21,7 +23,7 @@ fn append_to(fname: &str) -> Result<std::fs::File, String> {
         .map_err(|e| format!("{:?}", e))
 }
 
-fn main() -> Result<(), String> {
+fn main() -> Result<(), TokErr> {
     let mut cfg = lazy_conf::config("-c", &["{HOME}/.config/work_tock/init"])
         .map_err(|_| "Wierd Arguments")?;
 
@@ -39,6 +41,13 @@ fn main() -> Result<(), String> {
         .grab()
         .fg("-wk")
         .help("Filter -- Week Of Year: 1 to 53 or use '-' for this week")
+        .s();
+
+    let month_fil = cfg
+        .grab()
+        .fg("-month")
+        .fg("-mth")
+        .help("Filter -- Month of Year: 1 to 12")
         .s();
 
     let day_fil = cfg
@@ -126,6 +135,26 @@ fn main() -> Result<(), String> {
         c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
     }
 
+
+    //local closure for month filter
+    let month_s_fin = |yr,m|{
+        (
+            NaiveDate::from_ymd(yr,m,1),
+        match m{
+            12=>NaiveDate::from_ymd(yr+1,1,1),
+            _=>NaiveDate::from_ymd(yr,m+1,1),
+        })
+    };
+
+    if let Some(mth) = month_fil{
+        let dt = Local::today();
+        let (st,fin) = match mth.parse::<u32>(){
+            Ok(n)=>month_s_fin(dt.year(),n),
+            Err(_)=>month_s_fin(dt.year(),dt.month()),
+        };
+        c_io.retain(|(ind, _)| ind.date >= st && ind.date < fin);
+    }
+
     if let Some(dt) = day_fil {
         if dt == "-" {
             let dt = Local::today().naive_local();
@@ -153,30 +182,24 @@ fn main() -> Result<(), String> {
         t_time += otime - idat.time;
         if do_print {
             //maybe move out later
-            println!("{}: {}-{} = {}", idat.job, idat.time, otime, t_time);
+            println!("{}: {}-{} = {} => {}", idat.job, idat.time, otime, otime - idat.time, t_time);
         }
         r_times.insert(idat.job, tt + otime - idat.time);
     }
 
-    println!("{:?}", r_times);
+    println!("\n{:?}\n", r_times);
     println!("Total Time = {}", t_time);
 
     if cfg.grab().fg("-out").is_present() {
-        if let Some(_data) = curr {
-            match out.as_ref().map(|s| s.as_str()) {
-                Some("-") | None => {
-                    let now = STime::now();
-                    let mut f = append_to(&fname)?;
-                    writeln!(f, "-{}", now).map_err(|e| format!("{:?}", e))?;
-                    println!("You are now Clocked out at {}", now);
-                }
-                Some(v) => {
-                    println!("Cannot Clock out at \"{}\"", v);
-                }
-            }
-        } else {
-            println!("Cannot clock out, if not clocked in");
-        }
+        let _data = curr.ok_or("Cannot clock out if not clocked it")?;
+        let otime = match out.as_ref().map(|s| s.as_str()) {
+            Some("-") | None => STime::now(),
+
+            Some(v) => STime::from_str(v)?,
+        };
+        let mut f = append_to(&fname)?;
+        writeln!(f, "-{}", otime).map_err(|e| format!("{:?}", e))?;
+        println!("You are now Clocked out at {}", otime);
     }
 
     if let Some(istr) = c_in {

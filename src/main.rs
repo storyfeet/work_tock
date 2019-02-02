@@ -39,21 +39,18 @@ fn main() -> Result<(), TokErr> {
             (@arg week:  --week +takes_value "Filter by Week.")
             (@arg this_week: -w "Filter by this week")
             //(@arg on_date: --date +takes_value "Filter by date.")
-            (@arg today: -t "Filter by Today")
+            (@arg today: -d "Filter by Today")
             (@arg print: -p "Print Filtered Results nicely")
             (@arg clockin: -i --in +takes_value "Clock in")
             (@arg clockout: -o --out "Clock out Now")
             (@arg clockoutat: --outat +takes_value "Clock out at given time")
             (@arg job: --job +takes_value "Filter by Job")
+            (@arg tag: --tag +takes_value "Filter by Tag")
     )
     .get_matches();
 
     //core options
-    let fname = cfg
-        .grab()
-        .cf("config.file")
-        .help("Filename: what file to look at")
-        .s();
+    let fname = cfg.grab().cf("config.file").s();
 
     let month_fil = cfg
         .grab()
@@ -61,12 +58,6 @@ fn main() -> Result<(), TokErr> {
         .fg("-mth")
         .help("Filter -- Month of Year: 1 to 12")
         .s();
-
-    let tag_fil = cfg.grab().fg("-tag").help("Filter -- tag").s();
-
-    if cfg.help("Work Tock") {
-        return Ok(());
-    }
 
     //mashing two systems together not so fun
     let fname = matches.value_of("file").map(|s| s.to_string()).unwrap_or(
@@ -168,8 +159,8 @@ fn main() -> Result<(), TokErr> {
         c_io.retain(|(ind, _)| ind.job == jb);
     }
 
-    if let Some(tg) = tag_fil {
-        c_io.retain(|(ind, _)| ind.tags.contains(&tg));
+    if let Some(tg) = matches.value_of("tag") {
+        c_io.retain(|(ind, _)| ind.tags.contains(&tg.to_string()));
     }
 
     //build report

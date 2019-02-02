@@ -1,4 +1,5 @@
 use chrono::naive::NaiveDate;
+use chrono::Datelike;
 use pest::iterators::Pair;
 use pest::Parser;
 
@@ -18,6 +19,19 @@ pub enum ClockAction {
     SetNum(String, i32),
 }
 use self::ClockAction::*;
+
+impl ClockAction {
+    pub fn as_date(&self) -> Option<NaiveDate> {
+        match self {
+            ClockAction::SetDate(d, m, Some(y)) => Some(NaiveDate::from_ymd(*y, *m, *d)),
+            ClockAction::SetDate(d, m, None) => {
+                let date = chrono::offset::Local::today();
+                Some(NaiveDate::from_ymd(date.year(), *m, *d))
+            }
+            _ => None,
+        }
+    }
+}
 
 impl Pestable for ClockAction {
     fn from_pesto(r: Pair<Rule>) -> Result<Self, TokErr> {

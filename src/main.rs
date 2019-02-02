@@ -12,7 +12,7 @@ use crate::clockin::{ClockAction, Clockin};
 mod s_time;
 use crate::s_time::STime;
 mod pesto;
-//use crate::pesto::{TimeFile,Rule};
+use crate::pesto::{Rule,Pestable};
 
 mod err;
 use err::TokErr;
@@ -28,7 +28,7 @@ fn main() -> Result<(), TokErr> {
     let mut cfg = lazy_conf::config("-c", &["{HOME}/.config/work_tock/init"])
         .map_err(|_| "Wierd Arguments")?;
 
-    //note this currently runs as filter will eventually replace lazyconf, but only bit at a time
+    //TODO make lazyconf able to handle config files better
     let matches = clap_app!(
         work_tock=>
             (version: clap::crate_version!())
@@ -40,10 +40,14 @@ fn main() -> Result<(), TokErr> {
             (@arg this_week: -w "Filter by this week")
             //(@arg on_date: --date +takes_value "Filter by date.")
             (@arg today: -d "Filter by Today")
+            (@arg month: --month +takes_value "Filter by Month 1--12.")
+            (@arg this_month: -m "Filter by this month")
             (@arg print: -p "Print Filtered Results nicely")
             (@arg clockin: -i --in +takes_value "Clock in")
             (@arg clockout: -o --out "Clock out Now")
             (@arg clockoutat: --outat +takes_value "Clock out at given time")
+            (@arg since: --since +takes_value "Filter Since given date (inclusive)")
+            (@arg until: --until +takes_value "Filter until given date (inclusive)")
             (@arg job: --job +takes_value "Filter by Job")
             (@arg tag: --tag +takes_value "Filter by Tag")
     )
@@ -51,13 +55,6 @@ fn main() -> Result<(), TokErr> {
 
     //core options
     let fname = cfg.grab().cf("config.file").s();
-
-    let month_fil = cfg
-        .grab()
-        .fg("-month")
-        .fg("-mth")
-        .help("Filter -- Month of Year: 1 to 12")
-        .s();
 
     //mashing two systems together not so fun
     let fname = matches.value_of("file").map(|s| s.to_string()).unwrap_or(
@@ -96,7 +93,7 @@ fn main() -> Result<(), TokErr> {
     }
     if let Some(data) = curr.clone() {
         println!(
-            "You are clocked in for '{}'.\n You have been since {} for {} hours",
+            "You have been clocked in for {} since {} for {} hours",
             &data.job,
             data.time,
             STime::now() - data.time
@@ -139,12 +136,15 @@ fn main() -> Result<(), TokErr> {
         )
     };
 
-    if let Some(mth) = month_fil {
+    if matches.is_present("this_month") {
         let dt = Local::today();
-        let (st, fin) = match mth.parse::<u32>() {
-            Ok(n) => month_s_fin(dt.year(), n),
-            Err(_) => month_s_fin(dt.year(), dt.month()),
-        };
+        let (st, fin) = month_s_fin(dt.year(), dt.month());
+        c_io.retain(|(ind, _)| ind.date >= st && ind.date < fin);
+    }
+
+    if let Some(mth) = matches.value_of("month") {
+        let dt = Local::today();
+        let (st, fin) = month_s_fin(dt.year(), mth.parse()?);
         c_io.retain(|(ind, _)| ind.date >= st && ind.date < fin);
     }
 
@@ -153,6 +153,16 @@ fn main() -> Result<(), TokErr> {
         let dt = Local::today().naive_local();
         println!("Filtering by Today");
         c_io.retain(|(ind, _)| ind.date == dt);
+    }
+
+    if let Some(d) = matches.value_of("since") { 
+        let dt = ClockAction::pest_parse(Rule::Date,d)?.as_date().ok_or("Could not read since date")?;
+        c_io.retain(|(ind,_)| ind.date >= dt);
+    }
+
+    if let Some(d) = matches.value_of("until") { 
+        let dt = ClockAction::pest_parse(Rule::Date,d)?.as_date().ok_or("Could not read since date")?;
+        c_io.retain(|(ind,_)| ind.date <= dt);
     }
 
     if let Some(jb) = matches.value_of("job") {
@@ -176,7 +186,7 @@ fn main() -> Result<(), TokErr> {
         if matches.is_present("print") {
             //maybe move out later
             if last_dat != idat.date {
-                println!("{}", idat.date.format("%Y/%m/%d"));
+                println!("{}", idat.date.format("%d/%m/%Y"));
                 last_dat = idat.date;
             }
             println!(
@@ -198,7 +208,7 @@ fn main() -> Result<(), TokErr> {
         let _data = curr.as_ref().ok_or("Cannot clock out if not clocked it")?;
         let otime = STime::now();
         let mut f = append_to(&fname)?;
-        writeln!(f, "-{}", otime).map_err(|e| format!("{:?}", e))?;
+        writeln!(f, "  -{}", otime).map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
@@ -206,7 +216,7 @@ fn main() -> Result<(), TokErr> {
         let _data = curr.ok_or("Cannot clock out if not clocked in")?;
         let otime = STime::from_str(tm)?;
         let mut f = append_to(&fname)?;
-        writeln!(f, "-{}", otime).map_err(|e| format!("{:?}", e))?;
+        writeln!(f, "  -{}", otime).map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
@@ -232,10 +242,11 @@ fn main() -> Result<(), TokErr> {
                     other => println!("Option not handled {:?}", other),
                 }
             }
-            let mut line = "".to_string();
+            let mut line = new_date.format("%d/%m/%Y\n\t").to_string();
+
             if let Some(ref l) = last {
-                if new_date != l.0.date {
-                    line.push_str(&new_date.format("%d/%m/%Y,").to_string());
+                if new_date == l.0.date {
+                    line = "\t".to_string();
                 }
                 if let Some(ref nj) = new_job {
                     if *nj != l.0.job {
@@ -244,7 +255,6 @@ fn main() -> Result<(), TokErr> {
                     }
                 }
             } else {
-                line.push_str(&new_date.format("%d/%m/%Y,").to_string());
                 if let Some(ref nj) = new_job {
                     line.push_str(nj);
                     line.push(',');

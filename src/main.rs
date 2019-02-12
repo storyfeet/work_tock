@@ -1,3 +1,69 @@
+//! Work Tock: A Time Tracking System.
+//!
+//! The Primary purpose of this program is to easily track your hours
+//! for various different Jobs.
+//!
+//! I use it as a Freelancer to keep tabs on each job I have, and to track my own hours.
+//!
+//! The program has two main functions.
+//! The primary function is to parse a Clockin file and print various records based on that.
+//! The second is to make it easy to add a clocking in and out to that file.
+//!
+//! To tell the program where that file is, put the following in $HOME/.config/init:
+//! ```bash
+//! config:
+//!     file:{HOME}/<path>/<to>/<intended>/<file>
+//!
+//! ```
+//! (The "{}" Is for environment variables)
+//!
+//!
+//! ```bash
+//! #Clockin
+//! work_tock -i <JobName>
+//! #or
+//! work_tock -i "<JobName>,<time>,<date>"
+//!
+//! #Clockout
+//! work_tock -o
+//! #or
+//! work_tock --outat 13:37
+//!
+//! ```
+//! Times are always in 24:00 hr notation
+//!
+//! work_tock will append your actions to the END of the file
+//! and not change anything else within so everything you have written
+//! is safe
+//!
+//! An Example File
+//! ```bash
+//! #Comments begin with a hash
+//! #entries are separated by a comma or newline
+//! #whitespace is otherwise ignored
+//! 23/01/2019
+//!     Carwashing,12:30-13:50
+//!     15:00,#Carwashing is implied by previous Job
+//!     Programming,16:00,#Clockout for Carwash is implied by new Job
+//!     Eating,17:00
+//!   -18:00,#Clockout
+//!
+//! 24/01/2019
+//!     _breakfast,#Tags can be added with underscore
+//!     15:00,#Eating is implied as it was the last job
+//!     __,#clears all current tags.
+//!   -16:00
+//!
+//! ```
+//!
+//! running work_tock on the above file will produce:
+//! ```bash
+//! {"Carwashing": 02:20, "Eating": 02:00, "Programming": 01:00}
+//!
+//! Total Time = 05:20
+//! ```
+//!
+
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::str::FromStr;
@@ -12,7 +78,7 @@ use crate::clockin::{ClockAction, Clockin};
 mod s_time;
 use crate::s_time::STime;
 mod pesto;
-use crate::pesto::{Rule,Pestable};
+use crate::pesto::{Pestable, Rule};
 
 mod err;
 use err::TokErr;
@@ -155,14 +221,18 @@ fn main() -> Result<(), TokErr> {
         c_io.retain(|(ind, _)| ind.date == dt);
     }
 
-    if let Some(d) = matches.value_of("since") { 
-        let dt = ClockAction::pest_parse(Rule::Date,d)?.as_date().ok_or("Could not read since date")?;
-        c_io.retain(|(ind,_)| ind.date >= dt);
+    if let Some(d) = matches.value_of("since") {
+        let dt = ClockAction::pest_parse(Rule::Date, d)?
+            .as_date()
+            .ok_or("Could not read since date")?;
+        c_io.retain(|(ind, _)| ind.date >= dt);
     }
 
-    if let Some(d) = matches.value_of("until") { 
-        let dt = ClockAction::pest_parse(Rule::Date,d)?.as_date().ok_or("Could not read since date")?;
-        c_io.retain(|(ind,_)| ind.date <= dt);
+    if let Some(d) = matches.value_of("until") {
+        let dt = ClockAction::pest_parse(Rule::Date, d)?
+            .as_date()
+            .ok_or("Could not read since date")?;
+        c_io.retain(|(ind, _)| ind.date <= dt);
     }
 
     if let Some(jb) = matches.value_of("job") {

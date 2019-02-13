@@ -93,6 +93,10 @@ For more information use ```work_tock --help```
 changes:
 =========
 
+v 0.1.3
+-------
+Trying to get repository and docs showing on Cargo
+
 v 0.1.2
 --------
 Added Docs to readme

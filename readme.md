@@ -91,6 +91,12 @@ For more information use ```work_tock --help```
 
 
 changes:
+=========
+
+v 0.1.2
+--------
+Added Docs to readme
+
 
 v 0.1.1
 --------

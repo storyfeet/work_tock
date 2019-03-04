@@ -115,6 +115,7 @@ fn main() -> Result<(), TokErr> {
             (@arg since: --since +takes_value "Filter Since given date (inclusive)")
             (@arg until: --until +takes_value "Filter until given date (inclusive)")
             (@arg job: --job +takes_value "Filter by Job")
+            (@arg jobstart: --job_s +takes_value "Filter by Job Starts with")
             (@arg tag: --tag +takes_value "Filter by Tag")
     )
     .get_matches();
@@ -237,6 +238,10 @@ fn main() -> Result<(), TokErr> {
 
     if let Some(jb) = matches.value_of("job") {
         c_io.retain(|(ind, _)| ind.job == jb);
+    }
+
+    if let Some(jbs) = matches.value_of("jobstart") {
+        c_io.retain(|(ind, _)| ind.job.starts_with(jbs));
     }
 
     if let Some(tg) = matches.value_of("tag") {

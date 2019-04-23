@@ -97,7 +97,7 @@ fn main() -> Result<(), TokErr> {
             (version: crate_version!())
             (author: "Matthew Stoodley")
             (about: "Clock in and out of work")
-            (@arg conf: -c "Config File") //allow lazyconf config loader to work
+            (@arg config: -c "Config File") //allow clap_conf config loader to work
             (@arg file: -f --file +takes_value "Filename")
             (@arg week:  --week +takes_value "Filter by Week.")
             (@arg this_week: -w "Filter by this week")
@@ -117,7 +117,7 @@ fn main() -> Result<(), TokErr> {
     )
     .get_matches();
 
-    let cfg = with_toml_env(&clap, &["{HOME}/.config/work_tock_init"]);
+    let cfg = with_toml_env(&clap, &["{HOME}/.config/work_tock/init.toml"]);
     //core options
     let fname = cfg
         .grab()

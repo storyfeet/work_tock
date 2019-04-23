@@ -72,7 +72,7 @@ use chrono::naive::NaiveDate;
 use chrono::offset::Local;
 use chrono::{Datelike, Weekday};
 
-use clap::clap_app;
+use clap_conf::*;
 mod clockin;
 use crate::clockin::{ClockAction, Clockin};
 mod s_time;
@@ -91,13 +91,10 @@ fn append_to(fname: &str) -> Result<std::fs::File, String> {
 }
 
 fn main() -> Result<(), TokErr> {
-    let mut cfg = lazy_conf::config("-c", &["{HOME}/.config/work_tock/init"])
-        .map_err(|_| "Wierd Arguments")?;
-
     //TODO make lazyconf able to handle config files better
-    let matches = clap_app!(
+    let clap = clap_app!(
         work_tock=>
-            (version: clap::crate_version!())
+            (version: crate_version!())
             (author: "Matthew Stoodley")
             (about: "Clock in and out of work")
             (@arg conf: -c "Config File") //allow lazyconf config loader to work
@@ -120,14 +117,14 @@ fn main() -> Result<(), TokErr> {
     )
     .get_matches();
 
+    let cfg = with_toml_env(&clap, &["{HOME}/.config/work_tock_init"]);
     //core options
-    let fname = cfg.grab().cf("config.file").s();
-
-    //mashing two systems together not so fun
-    let fname = matches.value_of("file").map(|s| s.to_string()).unwrap_or(
-        lazy_conf::env::replace_env(&fname.ok_or("No Filename provided use -f")?)
-            .map_err(|_| "no env")?,
-    );
+    let fname = cfg
+        .grab()
+        .arg("file")
+        .conf("config.file")
+        .done()
+        .expect("No File given");
 
     let s =
         std::fs::read_to_string(&fname).map_err(|_| format!("Could not read file: {}", fname))?;
@@ -172,7 +169,7 @@ fn main() -> Result<(), TokErr> {
 
     //filter.
 
-    if matches.is_present("this_week") {
+    if cfg.bool_flag("this_week", Filter::Arg) {
         let dt = Local::today();
         let wk = dt.iso_week().week();
         let st = NaiveDate::from_isoywd(dt.year(), dt.iso_week().week(), Weekday::Mon);
@@ -181,7 +178,7 @@ fn main() -> Result<(), TokErr> {
         c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
     }
 
-    if let Some(wks) = matches.value_of("week") {
+    if let Some(wks) = cfg.grab().arg("week").done() {
         let dt = Local::today();
         let wk = wks
             .parse::<u32>()
@@ -203,48 +200,48 @@ fn main() -> Result<(), TokErr> {
         )
     };
 
-    if matches.is_present("this_month") {
+    if cfg.bool_flag("this_month", Filter::Arg) {
         let dt = Local::today();
         let (st, fin) = month_s_fin(dt.year(), dt.month());
         c_io.retain(|(ind, _)| ind.date >= st && ind.date < fin);
     }
 
-    if let Some(mth) = matches.value_of("month") {
+    if let Some(mth) = cfg.grab().arg("month").done() {
         let dt = Local::today();
         let (st, fin) = month_s_fin(dt.year(), mth.parse()?);
         c_io.retain(|(ind, _)| ind.date >= st && ind.date < fin);
     }
 
     //TODO filter by given date
-    if matches.is_present("today") {
+    if cfg.bool_flag("today", Filter::Arg) {
         let dt = Local::today().naive_local();
         println!("Filtering by Today");
         c_io.retain(|(ind, _)| ind.date == dt);
     }
 
-    if let Some(d) = matches.value_of("since") {
-        let dt = ClockAction::pest_parse(Rule::Date, d)?
+    if let Some(d) = cfg.grab().arg("since").done() {
+        let dt = ClockAction::pest_parse(Rule::Date, &d)?
             .as_date()
             .ok_or("Could not read since date")?;
         c_io.retain(|(ind, _)| ind.date >= dt);
     }
 
-    if let Some(d) = matches.value_of("until") {
-        let dt = ClockAction::pest_parse(Rule::Date, d)?
+    if let Some(d) = cfg.grab().arg("until").done() {
+        let dt = ClockAction::pest_parse(Rule::Date, &d)?
             .as_date()
             .ok_or("Could not read since date")?;
         c_io.retain(|(ind, _)| ind.date <= dt);
     }
 
-    if let Some(jb) = matches.value_of("job") {
+    if let Some(jb) = cfg.grab().arg("job").done() {
         c_io.retain(|(ind, _)| ind.job == jb);
     }
 
-    if let Some(jbs) = matches.value_of("jobstart") {
-        c_io.retain(|(ind, _)| ind.job.starts_with(jbs));
+    if let Some(jbs) = cfg.grab().arg("jobstart").done() {
+        c_io.retain(|(ind, _)| ind.job.starts_with(&jbs));
     }
 
-    if let Some(tg) = matches.value_of("tag") {
+    if let Some(tg) = cfg.grab().arg("tag").done() {
         c_io.retain(|(ind, _)| ind.tags.contains(&tg.to_string()));
     }
 
@@ -258,7 +255,7 @@ fn main() -> Result<(), TokErr> {
             .map(|x| *x)
             .unwrap_or(STime::new(0, 0));
         t_time += otime - idat.time;
-        if matches.is_present("print") {
+        if cfg.bool_flag("print", Filter::Arg) {
             //maybe move out later
             if last_dat != idat.date {
                 println!("{}", idat.date.format("%d/%m/%Y"));
@@ -279,7 +276,7 @@ fn main() -> Result<(), TokErr> {
     println!("\n{:?}\n", r_times);
     println!("Total Time = {}", t_time);
 
-    if matches.is_present("clockout") {
+    if cfg.bool_flag("clockout", Filter::Arg) {
         let _data = curr.as_ref().ok_or("Cannot clock out if not clocked it")?;
         let otime = STime::now();
         let mut f = append_to(&fname)?;
@@ -287,15 +284,15 @@ fn main() -> Result<(), TokErr> {
         println!("You are now Clocked out at {}", otime);
     }
 
-    if let Some(tm) = matches.value_of("clockoutat") {
+    if let Some(tm) = cfg.grab().arg("clockoutat").done() {
         let _data = curr.ok_or("Cannot clock out if not clocked in")?;
-        let otime = STime::from_str(tm)?;
+        let otime = STime::from_str(&tm)?;
         let mut f = append_to(&fname)?;
         writeln!(f, "  -{}", otime).map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
-    if let Some(istr) = matches.value_of("clockin") {
+    if let Some(istr) = cfg.grab().arg("clockin").done() {
         let mut new_date = Local::today().naive_local();
         let mut new_time = STime::now();
         let mut new_job: Option<String> = None;

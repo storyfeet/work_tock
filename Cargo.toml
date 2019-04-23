@@ -12,7 +12,7 @@ repository = "https://github.com/storyfeet/work_tock"
 lazy_conf = "0.1.1"
 chrono = "0.4.6"
 derive_more = "0.13.0"
-clap = "2.32.0"
+clap_conf = {path="../../mlibs/clap_conf/"}
 
 pest = "2.0"
 pest_derive = "2.0"

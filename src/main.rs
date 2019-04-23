@@ -123,7 +123,7 @@ fn main() -> Result<(), TokErr> {
         .grab()
         .arg("file")
         .conf("config.file")
-        .done()
+        .rep_env()
         .expect("No File given");
 
     let s =

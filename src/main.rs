@@ -63,6 +63,11 @@
 //! Total Time = 05:20
 //! ```
 //!
+//!
+
+extern crate work_tock_lib;
+
+use work_tock_lib::{ClockAction,Clockin,STime,clockin,Pestable,Rule,TokErr};
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -73,15 +78,8 @@ use chrono::offset::Local;
 use chrono::{Datelike, Weekday};
 
 use clap_conf::*;
-mod clockin;
-use crate::clockin::{ClockAction, Clockin};
-mod s_time;
-use crate::s_time::STime;
-mod pesto;
-use crate::pesto::{Pestable, Rule};
 
-mod err;
-use err::TokErr;
+
 
 fn append_to(fname: &str) -> Result<std::fs::File, String> {
     std::fs::OpenOptions::new()
@@ -117,7 +115,7 @@ fn main() -> Result<(), TokErr> {
     )
     .get_matches();
 
-    let cfg = with_toml_env(&clap, &["{HOME}/.config/work_tock/init.toml"]);
+    let cfg = clap_conf::with_toml_env(&clap, &["{HOME}/.config/work_tock/init.toml"]);
     //core options
     let fname = cfg
         .grab()

@@ -1,13 +1,35 @@
 use crate::pesto;
+use failure_derive::*;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Fail)]
+#[fail(display = "Err on line {}: {}", line, err)]
+pub struct LineErr {
+    pub line: usize,
+    pub err: TokErr,
+}
+
+#[derive(Debug, PartialEq, Fail)]
 pub enum TokErr {
+    #[fail(display = "{}", 0)]
     Mess(String),
+    #[fail(display = "Not Set : {}", 0)]
     NotSet(&'static str),
+    #[fail(display = "{}", 0)]
     ParseErr(pest::error::Error<pesto::Rule>),
+    #[fail(display = "Cannot parse int")]
     ParseIntErr,
+    #[fail(display = "Unexepected Parsing Rule {:?}", 0)]
     UnexpectedRule(pesto::Rule),
+    #[fail(display = "No Token")]
     NoToken,
+    #[fail(display = "Cannot work for negative time")]
+    NegativeTime,
+}
+
+impl TokErr {
+    pub fn on_line(self, n: usize) -> LineErr {
+        LineErr { line: n, err: self }
+    }
 }
 
 impl From<&str> for TokErr {

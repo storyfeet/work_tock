@@ -67,7 +67,7 @@
 
 extern crate work_tock_lib;
 
-use work_tock_lib::{ClockAction,Clockin,STime,clockin,Pestable,Rule,TokErr};
+use work_tock_lib::{LineClockAction,ClockAction,Clockin,STime,clockin,Pestable,Rule,TokErr};
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -81,15 +81,14 @@ use clap_conf::*;
 
 
 
-fn append_to(fname: &str) -> Result<std::fs::File, String> {
+fn append_to(fname: &str) -> Result<std::fs::File,failure::Error> {
     std::fs::OpenOptions::new()
         .append(true)
         .open(&fname)
-        .map_err(|e| format!("{:?}", e))
+        .map_err(|e| e.into())
 }
 
-fn main() -> Result<(), TokErr> {
-    //TODO make lazyconf able to handle config files better
+fn main() -> Result<(), failure::Error> {
     let clap = clap_app!(
         work_tock=>
             (version: crate_version!())
@@ -125,7 +124,7 @@ fn main() -> Result<(), TokErr> {
         .expect("No File given");
 
     let s =
-        std::fs::read_to_string(&fname).map_err(|_| format!("Could not read file: {}", fname))?;
+        std::fs::read_to_string(&fname)?;//.map_err(|_| format!("Could not read file: {}", fname))?;
 
     let (clocks, errs) = clockin::read_string(&s);
 
@@ -146,7 +145,12 @@ fn main() -> Result<(), TokErr> {
             }
             Clockin::Out(cout) => {
                 match curr {
-                    Some(data) => c_io.push((data, cout)),
+                    Some(data) => {
+                        if cout < data.time {
+                            return Err(TokErr::NegativeTime.on_line(data.line).into())
+                        }
+                        c_io.push((data, cout));
+                    }
                     None => println!("Two Out's in a row"),
                 }
                 curr = None;
@@ -179,8 +183,8 @@ fn main() -> Result<(), TokErr> {
     if let Some(wks) = cfg.grab().arg("week").done() {
         let dt = Local::today();
         let wk = wks
-            .parse::<u32>()
-            .map_err(|_| "Could not parse week value")?;
+            .parse::<u32>()?;
+            //.map_err(|_| "Could not parse week value")?;
         let st = NaiveDate::from_isoywd(dt.year(), wk, Weekday::Mon);
         let fin = NaiveDate::from_isoywd(dt.year(), wk, Weekday::Sun);
         println!("Filtering by week {}", wk);
@@ -218,16 +222,17 @@ fn main() -> Result<(), TokErr> {
     }
 
     if let Some(d) = cfg.grab().arg("since").done() {
-        let dt = ClockAction::pest_parse(Rule::Date, &d)?
+        let dt = LineClockAction::pest_parse(Rule::Date, &d)?.action
             .as_date()
-            .ok_or("Could not read since date")?;
+            .ok_or(TokErr::from("Could not read since date"))?;
         c_io.retain(|(ind, _)| ind.date >= dt);
     }
 
     if let Some(d) = cfg.grab().arg("until").done() {
-        let dt = ClockAction::pest_parse(Rule::Date, &d)?
+        let lc = LineClockAction::pest_parse(Rule::Date, &d)?;
+        let dt = lc.action
             .as_date()
-            .ok_or("Could not read since date")?;
+            .ok_or(TokErr::from("Could not read since date"))?;
         c_io.retain(|(ind, _)| ind.date <= dt);
     }
 
@@ -275,18 +280,18 @@ fn main() -> Result<(), TokErr> {
     println!("Total Time = {}", t_time);
 
     if cfg.bool_flag("clockout", Filter::Arg) {
-        let _data = curr.as_ref().ok_or("Cannot clock out if not clocked it")?;
+        let _data = curr.as_ref().ok_or(TokErr::from("Cannot clock out if not clocked it"))?;
         let otime = STime::now();
         let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", otime).map_err(|e| format!("{:?}", e))?;
+        writeln!(f, "  -{}", otime)?;//.map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
     if let Some(tm) = cfg.grab().arg("clockoutat").done() {
-        let _data = curr.ok_or("Cannot clock out if not clocked in")?;
+        let _data = curr.ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
         let otime = STime::from_str(&tm)?;
         let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", otime).map_err(|e| format!("{:?}", e))?;
+        writeln!(f, "  -{}", otime)?;//.map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
@@ -299,7 +304,7 @@ fn main() -> Result<(), TokErr> {
             println!("Clockin format errors : {:?}", errs);
         } else {
             for ac in acs {
-                match ac {
+                match ac.action {
                     ClockAction::In(t) => new_time = t,
                     ClockAction::SetJob(j) => new_job = Some(j),
                     ClockAction::SetDate(d, m, Some(y)) => new_date = NaiveDate::from_ymd(y, m, d),
@@ -334,7 +339,7 @@ fn main() -> Result<(), TokErr> {
             line.push_str(&new_time.to_string());
             println!("Adding: {}", line);
             let mut f = append_to(&fname)?;
-            writeln!(f, "{}", line).map_err(|e| format!("{:?}", e))?;
+            writeln!(f, "{}", line)?//.map_err(|e| format!("{:?}", e))?;
         }
     }
 

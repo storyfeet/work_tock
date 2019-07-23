@@ -21,11 +21,11 @@ clockout
 
 The program works with a single text file, and will only read, and append to it, so all data in that file will otherwise remain untouched.
 
-use "-f" to select the file or set it in "$HOME/.config/work\_tock/init"
+use "-f" to select the file or set it in "$HOME/.config/work\_tock/init.toml"
 
-```
-config:
-    file:{HOME}/<path>/<to>/<file>
+```toml
+[config]
+    file="{HOME}/<path>/<to>/<file>"
 ```
 
 "{HOME}" is the env var $HOME, Any other env var can be used or not.
@@ -92,6 +92,10 @@ For more information use ```work_tock --help```
 
 changes:
 =========
+v 0.1.5
+-----------
+
+Documented use of toml instead of lazyf
 
 v 0.1.4
 --------

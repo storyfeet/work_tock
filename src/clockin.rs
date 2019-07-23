@@ -3,9 +3,15 @@ use chrono::Datelike;
 use pest::iterators::Pair;
 use pest::Parser;
 
-use crate::err::TokErr;
-use crate::pesto::{Pestable, Rule, TimeFile};
+use crate::err::{TokErr,LineErr};
+use crate::pesto::{Pestable, Rule, TimeFile,LineNum};
 use crate::s_time::STime;
+
+#[derive(Debug)]
+pub struct LineClockAction{
+    pub line:usize,
+    pub action:ClockAction,
+}
 
 #[derive(Debug)]
 pub enum ClockAction {
@@ -33,8 +39,16 @@ impl ClockAction {
     }
 }
 
+impl Pestable for LineClockAction {
+    fn from_pesto(r:Pair<Rule>)->Result<Self,LineErr>{
+        let (line,_) = r.as_span().start_pos().line_col();
+        ClockAction::from_pesto(r).map(|action| LineClockAction{line,action})
+        
+    }
+}
+
 impl Pestable for ClockAction {
-    fn from_pesto(r: Pair<Rule>) -> Result<Self, TokErr> {
+    fn from_pesto(r: Pair<Rule>) -> Result<Self, LineErr> {
         match r.as_rule() {
             Rule::Time => Ok(In(STime::from_pesto(r)?)),
             Rule::Clockout => Ok(Out(STime::from_pesto(r)?)),
@@ -86,7 +100,7 @@ impl Pestable for ClockAction {
                 ))
             }
 
-            other => Err(TokErr::UnexpectedRule(other)),
+            other => Err(TokErr::UnexpectedRule(other).on_line(r.line_num())),
         }
     }
 }
@@ -103,12 +117,13 @@ pub struct InData {
     pub date: NaiveDate,
     pub job: String,
     pub tags: Vec<String>,
+    pub line:usize,
 }
 
-pub fn read_clock_actions(s: &str) -> (Vec<ClockAction>, Vec<TokErr>) {
+pub fn read_clock_actions(s: &str) -> (Vec<LineClockAction>, Vec<LineErr>) {
     let p = match TimeFile::parse(Rule::Main, s) {
         Ok(mut p) => p.next().expect("Root should always have one child"),
-        Err(e) => return (Vec::new(), vec![TokErr::ParseErr(e)]),
+        Err(e) => return (Vec::new(), vec![TokErr::ParseErr(e).on_line(0)]),
     };
 
     let mut res = Vec::new();
@@ -118,7 +133,7 @@ pub fn read_clock_actions(s: &str) -> (Vec<ClockAction>, Vec<TokErr>) {
         if record.as_rule() == Rule::EOI {
             continue;
         }
-        match ClockAction::from_pestopt(record.into_inner().next()) {
+        match LineClockAction::from_pestopt(record.into_inner().next()) {
             Ok(v) => res.push(v),
             Err(e) => errs.push(e),
         }
@@ -126,7 +141,7 @@ pub fn read_clock_actions(s: &str) -> (Vec<ClockAction>, Vec<TokErr>) {
     (res, errs)
 }
 
-pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
+pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<LineErr>) {
     let mut job = "General".to_string();
     let mut tags = Vec::new();
     let mut date = NaiveDate::from_ymd(1, 1, 1); //consider changing
@@ -137,12 +152,12 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
     let (c_ac, mut errs) = read_clock_actions(s);
 
     for ac in c_ac {
-        match ac {
+        match ac.action {
             SetJob(j) => job = j,
             SetDate(d, m, Some(y)) => date = NaiveDate::from_ymd(y, m, d),
             SetDate(d, m, None) => match year {
                 Some(y) => date = NaiveDate::from_ymd(y, m, d),
-                None => errs.push(TokErr::NotSet("date")),
+                None => errs.push(TokErr::NotSet("date").on_line(ac.line)),
             },
             AddTag(s) => tags.push(s.clone()),
             ClearTags(Some(s)) => tags = vec![s],
@@ -157,6 +172,7 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
                 job: job.clone(),
                 tags: tags.clone(),
                 date,
+                line:ac.line,
             })),
 
             Out(time) => res.push(Clockin::Out(time)),
@@ -166,6 +182,7 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<TokErr>) {
                     job: job.clone(),
                     tags: tags.clone(),
                     date,
+                    line:ac.line,
                 }));
                 res.push(Clockin::Out(tout));
             }

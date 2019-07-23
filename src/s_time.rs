@@ -5,10 +5,10 @@ use std::str::FromStr;
 
 use pest::Parser;
 
-use crate::err::TokErr;
-use crate::pesto::{Pestable, Rule, TimeFile};
+use crate::err::{TokErr,LineErr};
+use crate::pesto::{LineNum,Pestable, Rule, TimeFile};
 
-#[derive(Copy, Clone, PartialEq, Eq, Add, Sub, AddAssign, SubAssign)]
+#[derive(Copy, Clone, PartialOrd, PartialEq, Eq, Add, Sub, AddAssign, SubAssign)]
 pub struct STime(i32); //minutes
 
 impl STime {
@@ -22,7 +22,7 @@ impl STime {
 }
 
 impl Pestable for STime {
-    fn from_pesto(p: pest::iterators::Pair<Rule>) -> Result<Self, TokErr> {
+    fn from_pesto(p: pest::iterators::Pair<Rule>) -> Result<Self, LineErr> {
         match p.as_rule() {
             Rule::Time => {
                 let mut rc = p.into_inner();
@@ -32,7 +32,7 @@ impl Pestable for STime {
                 ))
             }
             Rule::Clockout => STime::from_pestopt(p.into_inner().next()),
-            v => Err(TokErr::UnexpectedRule(v)),
+            v => Err(TokErr::UnexpectedRule(v).on_line(p.line_num())),
         }
     }
 }
@@ -43,7 +43,7 @@ impl FromStr for STime {
         let p = TimeFile::parse(crate::pesto::Rule::Time, s)?
             .next()
             .unwrap();
-        Self::from_pesto(p)
+        Self::from_pesto(p).map_err(|e|e.err)
     }
 }
 

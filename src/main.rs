@@ -67,7 +67,9 @@
 
 extern crate work_tock_lib;
 
-use work_tock_lib::{LineClockAction,ClockAction,Clockin,STime,clockin,Pestable,Rule,TokErr};
+use work_tock_lib::{
+    clockin, ClockAction, Clockin, LineClockAction, Pestable, Rule, STime, TokErr,
+};
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -79,9 +81,7 @@ use chrono::{Datelike, Weekday};
 
 use clap_conf::*;
 
-
-
-fn append_to(fname: &str) -> Result<std::fs::File,failure::Error> {
+fn append_to(fname: &str) -> Result<std::fs::File, failure::Error> {
     std::fs::OpenOptions::new()
         .append(true)
         .open(&fname)
@@ -123,8 +123,7 @@ fn main() -> Result<(), failure::Error> {
         .rep_env()
         .expect("No File given");
 
-    let s =
-        std::fs::read_to_string(&fname)?;//.map_err(|_| format!("Could not read file: {}", fname))?;
+    let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
 
     let (clocks, errs) = clockin::read_string(&s);
 
@@ -147,7 +146,7 @@ fn main() -> Result<(), failure::Error> {
                 match curr {
                     Some(data) => {
                         if cout < data.time {
-                            return Err(TokErr::NegativeTime.on_line(data.line).into())
+                            return Err(TokErr::NegativeTime.on_line(data.line).into());
                         }
                         c_io.push((data, cout));
                     }
@@ -157,17 +156,34 @@ fn main() -> Result<(), failure::Error> {
             }
         }
     }
+
+    //Data all created time to check things
+
+    let today = Local::today().naive_local();
+    
     if let Some(data) = curr.clone() {
-        println!(
-            "You have been clocked in for {} since {} for {} hours",
-            &data.job,
-            data.time,
-            STime::now() - data.time
-        );
-        c_io.push((data.clone(), STime::now()));
+        if today == data.date  {
+            println!(
+                "You have been clocked in for {} since {} for {} hours",
+                data.job,
+                data.time,
+                STime::now() - data.time
+            );
+        }else {
+            //TODO TODO
+            println!(
+                "You have been clocked in for {} since {} for {} days and {} hours",
+                data.job,
+                data.date,
+                (today - data.date).days(),
+                STime::now() - data.time,
+                
+                );
+        }
+        c_io.push((data, STime::now()));
     }
 
-    let last = c_io.get(c_io.len() - 1).map(|x| x.clone());
+    let last_entry = c_io.get(c_io.len() - 1).map(|x|x.clone());
 
     //filter.
 
@@ -182,9 +198,8 @@ fn main() -> Result<(), failure::Error> {
 
     if let Some(wks) = cfg.grab().arg("week").done() {
         let dt = Local::today();
-        let wk = wks
-            .parse::<u32>()?;
-            //.map_err(|_| "Could not parse week value")?;
+        let wk = wks.parse::<u32>()?;
+        //.map_err(|_| "Could not parse week value")?;
         let st = NaiveDate::from_isoywd(dt.year(), wk, Weekday::Mon);
         let fin = NaiveDate::from_isoywd(dt.year(), wk, Weekday::Sun);
         println!("Filtering by week {}", wk);
@@ -222,7 +237,8 @@ fn main() -> Result<(), failure::Error> {
     }
 
     if let Some(d) = cfg.grab().arg("since").done() {
-        let dt = LineClockAction::pest_parse(Rule::Date, &d)?.action
+        let dt = LineClockAction::pest_parse(Rule::Date, &d)?
+            .action
             .as_date()
             .ok_or(TokErr::from("Could not read since date"))?;
         c_io.retain(|(ind, _)| ind.date >= dt);
@@ -230,7 +246,8 @@ fn main() -> Result<(), failure::Error> {
 
     if let Some(d) = cfg.grab().arg("until").done() {
         let lc = LineClockAction::pest_parse(Rule::Date, &d)?;
-        let dt = lc.action
+        let dt = lc
+            .action
             .as_date()
             .ok_or(TokErr::from("Could not read since date"))?;
         c_io.retain(|(ind, _)| ind.date <= dt);
@@ -280,18 +297,27 @@ fn main() -> Result<(), failure::Error> {
     println!("Total Time = {}", t_time);
 
     if cfg.bool_flag("clockout", Filter::Arg) {
-        let _data = curr.as_ref().ok_or(TokErr::from("Cannot clock out if not clocked it"))?;
+        let _data = last_entry
+            .as_ref()
+            .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
+
+        let today = Local::today().naive_local();
+        if today > last_dat {
+            return Err(TokErr::from("Last Clockin was not today please use -l to confirm long day").into());
+        }
+
         let otime = STime::now();
+
         let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", otime)?;//.map_err(|e| format!("{:?}", e))?;
+        writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
     if let Some(tm) = cfg.grab().arg("clockoutat").done() {
-        let _data = curr.ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
+        let _data = last_entry.as_ref().ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
         let otime = STime::from_str(&tm)?;
         let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", otime)?;//.map_err(|e| format!("{:?}", e))?;
+        writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
         println!("You are now Clocked out at {}", otime);
     }
 
@@ -309,7 +335,7 @@ fn main() -> Result<(), failure::Error> {
                     ClockAction::SetJob(j) => new_job = Some(j),
                     ClockAction::SetDate(d, m, Some(y)) => new_date = NaiveDate::from_ymd(y, m, d),
                     ClockAction::SetDate(d, m, None) => {
-                        new_date = match last {
+                        new_date = match last_entry.as_ref() {
                             Some(ref l) => NaiveDate::from_ymd(l.0.date.year(), m, d),
                             None => NaiveDate::from_ymd(new_date.year(), m, d),
                         }
@@ -319,7 +345,7 @@ fn main() -> Result<(), failure::Error> {
             }
             let mut line = new_date.format("%d/%m/%Y\n\t").to_string();
 
-            if let Some(ref l) = last {
+            if let Some(ref l) = last_entry.as_ref() {
                 if new_date == l.0.date {
                     line = "\t".to_string();
                 }
@@ -339,7 +365,7 @@ fn main() -> Result<(), failure::Error> {
             line.push_str(&new_time.to_string());
             println!("Adding: {}", line);
             let mut f = append_to(&fname)?;
-            writeln!(f, "{}", line)?//.map_err(|e| format!("{:?}", e))?;
+            writeln!(f, "{}", line)? //.map_err(|e| format!("{:?}", e))?;
         }
     }
 

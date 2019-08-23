@@ -2,15 +2,16 @@ use chrono::naive::NaiveDate;
 use chrono::Datelike;
 use pest::iterators::Pair;
 use pest::Parser;
+use std::fmt::Display;
 
-use crate::err::{TokErr,LineErr};
-use crate::pesto::{Pestable, Rule, TimeFile,LineNum};
+use crate::err::{LineErr, TokErr};
+use crate::pesto::{LineNum, Pestable, Rule, TimeFile};
 use crate::s_time::STime;
 
 #[derive(Debug)]
-pub struct LineClockAction{
-    pub line:usize,
-    pub action:ClockAction,
+pub struct LineClockAction {
+    pub line: usize,
+    pub action: ClockAction,
 }
 
 #[derive(Debug)]
@@ -40,10 +41,9 @@ impl ClockAction {
 }
 
 impl Pestable for LineClockAction {
-    fn from_pesto(r:Pair<Rule>)->Result<Self,LineErr>{
-        let (line,_) = r.as_span().start_pos().line_col();
-        ClockAction::from_pesto(r).map(|action| LineClockAction{line,action})
-        
+    fn from_pesto(r: Pair<Rule>) -> Result<Self, LineErr> {
+        let (line, _) = r.as_span().start_pos().line_col();
+        ClockAction::from_pesto(r).map(|action| LineClockAction { line, action })
     }
 }
 
@@ -117,7 +117,13 @@ pub struct InData {
     pub date: NaiveDate,
     pub job: String,
     pub tags: Vec<String>,
-    pub line:usize,
+    pub line: usize,
+}
+
+impl Display for InData {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}({} - {})", self.job, self.date, self.time)
+    }
 }
 
 pub fn read_clock_actions(s: &str) -> (Vec<LineClockAction>, Vec<LineErr>) {
@@ -172,7 +178,7 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<LineErr>) {
                 job: job.clone(),
                 tags: tags.clone(),
                 date,
-                line:ac.line,
+                line: ac.line,
             })),
 
             Out(time) => res.push(Clockin::Out(time)),
@@ -182,7 +188,7 @@ pub fn read_string(s: &str) -> (Vec<Clockin>, Vec<LineErr>) {
                     job: job.clone(),
                     tags: tags.clone(),
                     date,
-                    line:ac.line,
+                    line: ac.line,
                 }));
                 res.push(Clockin::Out(tout));
             }

@@ -92,6 +92,15 @@ For more information use ```work_tock --help```
 
 changes:
 =========
+
+v 0.1.6
+---------
+
+Added error handling for loggin in and out on different days.
+
+switched order of logging in and printed statements to include the current logout on the printed statements.
+
+
 v 0.1.5
 -----------
 

@@ -137,6 +137,7 @@ fn main() -> Result<(), failure::Error> {
     let mut curr = None;
     let mut c_io = Vec::new();
     //Get outs with ins so filter makes sense
+    //If currently clocked in leaves curr as an option to be added later
     for c in clocks {
         match c {
             Clockin::In(data) => {
@@ -160,25 +161,110 @@ fn main() -> Result<(), failure::Error> {
         }
     }
 
-    //Data all created time to check things
     let today = Local::now().date().naive_local();
 
-    if let Some(data) = curr.clone() {
-        let since_last = STime::since(data.time, &data.date);
-        let sdate = if today == data.date {
-            "".to_string()
-        } else {
-            data.date.to_string()
-        };
-        println!(
-            "You have been clocked in for {} since {} {} for {} hours",
-            data.job, sdate, data.time, since_last,
-        );
-        let otime = since_last + data.time;
-        c_io.push((data, otime));
+    if cfg.bool_flag("clockout", Filter::Arg) {
+        let c_data = curr
+            .take()
+            .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
+
+        if today > c_data.date && !cfg.bool_flag("long_day", Filter::Arg) {
+            return Err(TokErr::from(
+                format!("Last Clockin was not today: {}. Please use -l to confirm long day",c_data)
+            )
+            .into());
+        }
+
+        let since = STime::since(c_data.time, &c_data.date);
+        let mut f = append_to(&fname)?;
+        let otime = since + c_data.time;
+            
+        writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
+        println!("You are now Clocking out from {} at {}",c_data, otime);
+        c_io.push((c_data,otime));
     }
 
-    let last_entry = c_io.get(c_io.len() - 1).map(|x| x.clone());
+    if let Some(tm) = cfg.grab().arg("clockoutat").done() {
+        let c_data = curr
+            .take()
+            .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
+        let otime = STime::from_str(&tm)?;
+
+        if c_data.date != today
+            && otime < STime::new(24, 0)
+            && !cfg.bool_flag("same_day", Filter::Arg)
+        {
+            return Err(TokErr::from(format!("The last clockin was on a different date, {} please use -s to confirm clockout on that day, or add n*(24 hours) to time for long day clockout",c_data)).into());
+        }
+        let mut f = append_to(&fname)?;
+        writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
+        println!("You are now Clocking out from {} at {}",c_data, otime);
+        c_io.push((c_data,otime));
+    }
+
+    if let Some(istr) = cfg.grab().arg("clockin").done() {
+        //first check that we are not clockedin on a different date
+        if let Some(c_data) = curr.take() {
+            if c_data.date != today {
+                return Err(TokErr::from("You are currently clocked in from a different date, Please clockout from that before clocking in.").into());
+            }
+            let since = STime::since(c_data.time,&c_data.date);
+            let otime = c_data.time + since;
+            //Consider adding negative checks
+            println!("You are now Clocking out from {} at {}",c_data, otime);
+            c_io.push((c_data,otime));
+        }
+
+        let last_entry = c_io.get(c_io.len() - 1).map(|x| x.clone());
+        //then build the clockin data
+        let mut new_date = Local::today().naive_local();
+        let mut new_time = STime::now();
+        let mut new_job = last_entry.as_ref().map(|e|e.0.job.clone());
+        let (acs, errs) = clockin::read_clock_actions(&istr);
+        if errs.len() > 0 {
+            println!("Clockin format errors : {:?}", errs);
+        } else {
+            for ac in acs {
+                match ac.action {
+                    ClockAction::In(t) => new_time = t,
+                    ClockAction::SetJob(j) => new_job = Some(j),
+                    ClockAction::SetDate(d, m, Some(y)) => new_date = NaiveDate::from_ymd(y, m, d),
+                    ClockAction::SetDate(d, m, None) => {
+                        new_date = match last_entry.as_ref() {
+                            Some(ref l) => NaiveDate::from_ymd(l.0.date.year(), m, d),
+                            None => NaiveDate::from_ymd(new_date.year(), m, d),
+                        }
+                    }
+                    other => println!("Option not handled {:?}", other),
+                }
+            }
+            
+            let mut line = "".to_string();
+            let new_job = new_job.ok_or(TokErr::from("No Job Specified and no previous job found"))?;
+
+            if let Some(l) = last_entry {
+                if l.0.date != new_date{
+                    line.push_str(&new_date.format("%d/%m/%Y\n\t").to_string());
+                }
+            }
+            line.push_str(&new_job);
+            line.push(',');
+
+            line.push_str(&new_time.to_string());
+            println!("You are now clocking into: {} at {}", new_job,new_time);
+            let mut f = append_to(&fname)?;
+            writeln!(f, "{}", line)?
+        }
+    }
+    if let Some(c_data) = curr{
+        let since_last = STime::since(c_data.time, &c_data.date);
+        println!(
+            "You have been clocked in for {} for {} hours",
+            c_data,  since_last,
+        );
+        let otime = since_last + c_data.time;
+        c_io.push((c_data, otime));
+    }
 
     //filter.
 
@@ -290,97 +376,6 @@ fn main() -> Result<(), failure::Error> {
 
     println!("\n{:?}\n", r_times);
     println!("Total Time = {}", t_time);
-
-    if cfg.bool_flag("clockout", Filter::Arg) {
-        let c_data = curr
-            .as_ref()
-            .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
-
-        if today > c_data.date && !cfg.bool_flag("long_day", Filter::Arg) {
-            return Err(TokErr::from(
-                "Last Clockin was not today please use -l to confirm long day",
-            )
-            .into());
-        }
-
-        let since = STime::since(c_data.time, &c_data.date);
-        let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", since + c_data.time)?; //.map_err(|e| format!("{:?}", e))?;
-        println!("You are now Clocked out at {}", since + c_data.time);
-    }
-
-    if let Some(tm) = cfg.grab().arg("clockoutat").done() {
-        let c_data = curr
-            .as_ref()
-            .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
-        let otime = STime::from_str(&tm)?;
-
-        if c_data.date != today
-            && otime < STime::new(24, 0)
-            && !cfg.bool_flag("same_day", Filter::Arg)
-        {
-            return Err(TokErr::from("The clockin was on a different date, please use -s to confirm clockout on that day, or add n*(24 hours) to time for long day clockout").into());
-        }
-        let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
-        println!("You are now Clocked out at {}", otime);
-    }
-
-    if let Some(istr) = cfg.grab().arg("clockin").done() {
-        //first check that we are not clockedin on a different date
-        if let Some(c_data) = curr.as_ref() {
-            if c_data.date != today {
-                return Err(TokErr::from("You are currently clocked in from a different date, Please clockout from that before clocking in").into());
-            }
-        }
-
-        //then build the query
-        let mut new_date = Local::today().naive_local();
-        let mut new_time = STime::now();
-        let mut new_job: Option<String> = None;
-        let (acs, errs) = clockin::read_clock_actions(&istr);
-        if errs.len() > 0 {
-            println!("Clockin format errors : {:?}", errs);
-        } else {
-            for ac in acs {
-                match ac.action {
-                    ClockAction::In(t) => new_time = t,
-                    ClockAction::SetJob(j) => new_job = Some(j),
-                    ClockAction::SetDate(d, m, Some(y)) => new_date = NaiveDate::from_ymd(y, m, d),
-                    ClockAction::SetDate(d, m, None) => {
-                        new_date = match last_entry.as_ref() {
-                            Some(ref l) => NaiveDate::from_ymd(l.0.date.year(), m, d),
-                            None => NaiveDate::from_ymd(new_date.year(), m, d),
-                        }
-                    }
-                    other => println!("Option not handled {:?}", other),
-                }
-            }
-            let mut line = new_date.format("%d/%m/%Y\n\t").to_string();
-
-            if let Some(ref l) = last_entry.as_ref() {
-                if new_date == l.0.date {
-                    line = "\t".to_string();
-                }
-                if let Some(ref nj) = new_job {
-                    if *nj != l.0.job {
-                        line.push_str(nj);
-                        line.push(',');
-                    }
-                }
-            } else {
-                if let Some(ref nj) = new_job {
-                    line.push_str(nj);
-                    line.push(',');
-                }
-            }
-
-            line.push_str(&new_time.to_string());
-            println!("Adding: {}", line);
-            let mut f = append_to(&fname)?;
-            writeln!(f, "{}", line)? //.map_err(|e| format!("{:?}", e))?;
-        }
-    }
 
     Ok(())
 }

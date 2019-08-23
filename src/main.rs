@@ -296,7 +296,7 @@ fn main() -> Result<(), failure::Error> {
             .as_ref()
             .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
 
-        if today > last_dat && !cfg.bool_flag("long_day", Filter::Arg) {
+        if today > c_data.date && !cfg.bool_flag("long_day", Filter::Arg) {
             return Err(TokErr::from(
                 "Last Clockin was not today please use -l to confirm long day",
             )

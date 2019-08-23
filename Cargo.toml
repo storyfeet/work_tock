@@ -18,6 +18,7 @@ name = "work_tock"
 path = "src/main.rs"
 
 
+
 [dependencies]
 lazy_conf = "0.1.1"
 chrono = "0.4.6"
@@ -29,3 +30,4 @@ failure_derive = "0.1.5"
 pest = "2.1.0"
 pest_derive = "2.1.0"
 num = "0.2"
+#num-derive = "0.2.5"

@@ -1,3 +1,5 @@
+use chrono::naive::NaiveDate;
+use chrono::offset::Local;
 use chrono::Timelike;
 use derive_more::*;
 use std::fmt::{Debug, Display, Formatter};
@@ -5,8 +7,8 @@ use std::str::FromStr;
 
 use pest::Parser;
 
-use crate::err::{TokErr,LineErr};
-use crate::pesto::{LineNum,Pestable, Rule, TimeFile};
+use crate::err::{LineErr, TokErr};
+use crate::pesto::{LineNum, Pestable, Rule, TimeFile};
 
 #[derive(Copy, Clone, PartialOrd, PartialEq, Eq, Add, Sub, AddAssign, SubAssign)]
 pub struct STime(i32); //minutes
@@ -16,8 +18,20 @@ impl STime {
         STime(hr * 60 + min)
     }
     pub fn now() -> Self {
-        let t = chrono::offset::Local::now();
+        let t = Local::now();
         STime::new(t.time().hour() as i32, t.time().minute() as i32)
+    }
+
+    pub fn since(then_time:Self, then_date: &NaiveDate) -> Self {
+        let now = Local::now();
+        let now_time = STime::new(now.time().hour() as i32, now.time().minute() as i32);
+        let now_date = now.date().naive_local();
+
+        let days_between = (now_date - *then_date).num_days() as i32;
+
+        now_time + STime::new(24* days_between,0) - then_time
+
+            
     }
 }
 
@@ -43,7 +57,7 @@ impl FromStr for STime {
         let p = TimeFile::parse(crate::pesto::Rule::Time, s)?
             .next()
             .unwrap();
-        Self::from_pesto(p).map_err(|e|e.err)
+        Self::from_pesto(p).map_err(|e| e.err)
     }
 }
 

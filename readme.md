@@ -93,6 +93,13 @@ For more information use ```work_tock --help```
 changes:
 =========
 
+v 0.1.7
+--------
+
+Bug fix -- Now handles empty files properly (Oops)
+
+now takes -q option for clockin to previous Job
+
 v 0.1.6
 ---------
 

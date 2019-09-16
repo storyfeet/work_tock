@@ -165,7 +165,7 @@ impl NewClockin {
         let (_, date) = self.inc_date();
         let (_, job) = self.inc_job()?;
         let time = self.inc_time();
-        let date_str = if today == date {
+        let date_str = if today != date {
             date.format("on %d/%m/%Y").to_string()
         } else {
             "today".to_string()
@@ -298,7 +298,9 @@ fn main() -> Result<(), failure::Error> {
 
     if cfg.bool_flag("quickin", Filter::Arg) {
         let mut new_clock = NewClockin::create().prev_job();
-        new_clock.last = c_io.get(c_io.len() - 1).map(|x| x.clone().0);
+        if c_io.len() > 0 {
+            new_clock.last = c_io.get(c_io.len() - 1).map(|x| x.clone().0);
+        }
 
         let f_line = new_clock.output()?;
         let message = new_clock.message()?;
@@ -322,7 +324,9 @@ fn main() -> Result<(), failure::Error> {
         }
 
         let mut new_clock = NewClockin::create();
-        new_clock.last = c_io.get(c_io.len() - 1).map(|x| x.clone().0);
+        if c_io.len() > 0 {
+            new_clock.last = c_io.get(c_io.len() - 1).map(|x| x.clone().0);
+        }
         //then build the clockin data
         let (acs, errs) = clockin::read_clock_actions(&istr);
         if errs.len() > 0 {

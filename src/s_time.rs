@@ -24,7 +24,6 @@ impl STime {
 
     pub fn since(&self, now_date: &NaiveDate, then_time: Self, then_date: &NaiveDate) -> Self {
         let days_between = (*now_date - *then_date).num_days() as i32;
-
         *self + STime::new(24 * days_between, 0) - then_time
     }
 }

@@ -22,16 +22,10 @@ impl STime {
         STime::new(t.time().hour() as i32, t.time().minute() as i32)
     }
 
-    pub fn since(then_time:Self, then_date: &NaiveDate) -> Self {
-        let now = Local::now();
-        let now_time = STime::new(now.time().hour() as i32, now.time().minute() as i32);
-        let now_date = now.date().naive_local();
+    pub fn since(&self, now_date: &NaiveDate, then_time: Self, then_date: &NaiveDate) -> Self {
+        let days_between = (*now_date - *then_date).num_days() as i32;
 
-        let days_between = (now_date - *then_date).num_days() as i32;
-
-        now_time + STime::new(24* days_between,0) - then_time
-
-            
+        *self + STime::new(24 * days_between, 0) - then_time
     }
 }
 

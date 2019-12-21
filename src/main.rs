@@ -68,7 +68,7 @@
 extern crate work_tock_lib;
 
 use work_tock_lib::{
-    clockin, ClockAction, Clockin, InData, LineClockAction, Pestable, Rule, STime, TokErr,
+    clockin,  Clockin,  LineClockAction, Pestable, Rule, STime, TokErr,
 };
 
 use std::collections::BTreeMap;
@@ -88,97 +88,6 @@ fn append_to(fname: &str) -> Result<std::fs::File, failure::Error> {
         .map_err(|e| e.into())
 }
 
-struct NewClockin {
-    pub job: Option<String>,
-    pub date: Option<NaiveDate>,
-    pub time: Option<STime>,
-    pub last: Option<InData>,
-    pub prev_job: bool,
-}
-
-impl NewClockin {
-    fn create() -> Self {
-        NewClockin {
-            job: None,
-            date: None,
-            time: None,
-            last: None,
-            prev_job: false,
-        }
-    }
-
-    fn prev_job(mut self) -> Self {
-        self.prev_job = true;
-        self
-    }
-
-    fn inc_date(&self) -> (bool, NaiveDate) {
-        let date = self.date.unwrap_or(Local::now().date().naive_local());
-
-        self.last
-            .as_ref()
-            .map(|ls| (date != ls.date, date))
-            .unwrap_or((true, date))
-    }
-
-    fn inc_time(&self) -> STime {
-        self.time.unwrap_or_else(|| STime::now())
-    }
-
-    fn inc_job(&self) -> Result<(bool, String), TokErr> {
-        match self.last.as_ref() {
-            Some(ls) => {
-                if self.prev_job {
-                    Ok((false, ls.job.clone()))
-                } else {
-                    let jb = self.job.clone().ok_or("No Job provided")?;
-                    Ok((jb != ls.job, jb))
-                }
-            }
-            None => {
-                let jb = self.job.clone().ok_or("No job provided")?;
-                Ok((true, jb))
-            }
-        }
-    }
-
-    fn output(&self) -> Result<String, TokErr> {
-        let (use_date, date) = self.inc_date();
-        let (use_job, job) = self.inc_job()?;
-        let time = self.inc_time();
-
-        let mut res = String::new();
-        if use_date {
-            res.push_str(&date.format("%d/%m/%Y\n").to_string());
-        }
-        res.push('\t');
-        if use_job {
-            res.push_str(&job);
-            res.push(',');
-        };
-        res.push_str(&time.to_string());
-        Ok(res)
-    }
-
-    fn message(&self) -> Result<String, TokErr> {
-        let today = Local::now().date().naive_local();
-        let (_, date) = self.inc_date();
-        let (_, job) = self.inc_job()?;
-        let time = self.inc_time();
-        let date_str = if today != date {
-            date.format("on %d/%m/%Y").to_string()
-        } else {
-            "today".to_string()
-        };
-
-        Ok(format!(
-            "You are now clocking in {} at {} for {}",
-            date_str,
-            time.to_string(),
-            job
-        ))
-    }
-}
 
 fn main() -> Result<(), failure::Error> {
     let clap = clap_app!(
@@ -187,11 +96,13 @@ fn main() -> Result<(), failure::Error> {
             (author: "Matthew Stoodley")
             (about: "Clock in and out of work")
             (@arg config: -c "Config File") //allow clap_conf config loader to work
+            (@arg attime:-a +takes_value "perform activity at given time")
+            (@arg ondate:-d +takes_value "perform activity on given date")
             (@arg file: -f --file +takes_value "Filename")
             (@arg week:  --week +takes_value "Filter by Week.")
             (@arg this_week: -w "Filter by this week")
             //(@arg on_date: --date +takes_value "Filter by date.")
-            (@arg today: -d "Filter by Today")
+            (@arg today: -t "Filter by Today")
             (@arg month: --month +takes_value "Filter by Month 1--12.")
             (@arg this_month: -m "Filter by this month")
             (@arg print: -p "Print Filtered Results nicely")
@@ -254,7 +165,15 @@ fn main() -> Result<(), failure::Error> {
         }
     }
 
-    let today = Local::now().date().naive_local();
+    let today = match cfg.grab().arg("ondate").done(){
+        Some(s)=>clockin::read_date(&s)?,
+        None=>Local::now().date().naive_local(),
+    };
+    let now = match cfg.grab().arg("attime").done(){
+        Some(s)=>STime::from_str(&s)?,
+        None=>STime::now(),
+    };
+        
 
     if cfg.bool_flag("clockout", Filter::Arg) {
         let c_data = curr
@@ -269,96 +188,80 @@ fn main() -> Result<(), failure::Error> {
             .into());
         }
 
-        let since = STime::since(c_data.time, &c_data.date);
+        let since = now.since(&today,c_data.time, &c_data.date);
         let mut f = append_to(&fname)?;
         let otime = since + c_data.time;
 
         writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
-        println!("You are now Clocking out from {} at {}", c_data, otime);
+        println!("You are now clocking out from {} at {}", c_data, otime);
         c_io.push((c_data, otime));
     }
 
-    if let Some(tm) = cfg.grab().arg("clockoutat").done() {
-        let c_data = curr
-            .take()
-            .ok_or(TokErr::from("Cannot clock out if not clocked in"))?;
-        let otime = STime::from_str(&tm)?;
-
-        if c_data.date != today
-            && otime < STime::new(24, 0)
-            && !cfg.bool_flag("same_day", Filter::Arg)
-        {
-            return Err(TokErr::from(format!("The last clockin was on a different date, {} please use -s to confirm clockout on that day, or add n*(24 hours) to time for long day clockout",c_data)).into());
-        }
-        let mut f = append_to(&fname)?;
-        writeln!(f, "  -{}", otime)?; //.map_err(|e| format!("{:?}", e))?;
-        println!("You are now Clocking out from {} at {}", c_data, otime);
-        c_io.push((c_data, otime));
+    if let Some(_tm) = cfg.grab().arg("clockoutat").done() {
+        println!(r#""--outat <time>" has been replaced by "-o -a <time>""#)
     }
+
+    let mut clockin = None;
 
     if cfg.bool_flag("quickin", Filter::Arg) {
-        let mut new_clock = NewClockin::create().prev_job();
-        if c_io.len() > 0 {
-            new_clock.last = c_io.get(c_io.len() - 1).map(|x| x.clone().0);
-        }
-
-        let f_line = new_clock.output()?;
-        let message = new_clock.message()?;
-
-        println!("{}", message);
-        let mut f = append_to(&fname)?;
-        writeln!(f, "{}", f_line)?
+        clockin = Some(c_io.get(c_io.len() - 1).map(|x|x.0.job.clone()).ok_or(TokErr::from("no previous job"))?);
     }
 
     if let Some(istr) = cfg.grab().arg("clockin").done() {
+        clockin = Some(istr);
+    }
+
+    if let Some(job) = clockin{
         //first check that we are not clockedin on a different date
         if let Some(c_data) = curr.take() {
             if c_data.date != today {
                 return Err(TokErr::from("You are currently clocked in from a different date, Please clockout from that before clocking in.").into());
             }
-            let since = STime::since(c_data.time, &c_data.date);
-            let otime = c_data.time + since;
-            //Consider adding negative checks
-            println!("You are now Clocking out from {} at {}", c_data, otime);
-            c_io.push((c_data, otime));
-        }
+            let since = now.since(&today,c_data.time, &c_data.date);
+            if since < STime::new(0,0) {
+                return Err(TokErr::from("You are currently clocked in since after the given time. Cannot clockout before clocking in").into());
 
-        let mut new_clock = NewClockin::create();
-        if c_io.len() > 0 {
-            new_clock.last = c_io.get(c_io.len() - 1).map(|x| x.clone().0);
-        }
-        //then build the clockin data
-        let (acs, errs) = clockin::read_clock_actions(&istr);
-        if errs.len() > 0 {
-            println!("Clockin format errors : {:?}", errs);
-        } else {
-            for ac in acs {
-                match ac.action {
-                    ClockAction::In(t) => new_clock.time = Some(t),
-                    ClockAction::SetJob(j) => new_clock.job = Some(j),
-                    ClockAction::SetDate(d, m, Some(y)) => {
-                        new_clock.date = Some(NaiveDate::from_ymd(y, m, d))
-                    }
-                    ClockAction::SetDate(d, m, None) => {
-                        new_clock.date = match new_clock.last.as_ref() {
-                            Some(ref l) => Some(NaiveDate::from_ymd(l.date.year(), m, d)),
-                            None => Some(NaiveDate::from_ymd(Local::now().year(), m, d)),
-                        }
-                    }
-                    other => println!("Option not handled {:?}", other),
-                }
             }
-
-            let f_line = new_clock.output()?;
-            let message = new_clock.message()?;
-            println!("{}", message);
-
-            let mut f = append_to(&fname)?;
-            writeln!(f, "{}", f_line)?
+            println!("You are now clocking out from {} at {} ({}hrs)", c_data, now,since);
+            c_io.push((c_data, now));
         }
+        
+        let real_today = Local::now().date().naive_local();
+        let date_str = if real_today != today {
+            today.format("on %d/%m/%Y").to_string()
+        } else {
+            "today".to_string()
+        };
+        println!(// message 
+            "You are now clocking in {} at {} for {}",
+            date_str,
+            now,
+            job
+        );
+
+        let lastjob = c_io.get(c_io.len() - 1).map(|x| x.clone().0);//Option
+        let f_line = match lastjob {
+            Some(lj) =>{
+                let mut f = if lj.date != today{
+                    today.format("%d/%m/%Y\n\t").to_string()
+                }else { "\t".to_string()};
+                if lj.job != job {
+                    f.push_str(&format!("{},",job));
+                }
+                f.push_str(&now.to_string());
+                f
+            }
+            None=>{
+                format!("{}\n\t{},{}",today.format("%d/%m/%Y"),job,now)
+            }
+        };
+         
+
+        let mut f = append_to(&fname)?;
+        writeln!(f, "{}", f_line)?
     }
     if let Some(c_data) = curr {
-        let since_last = STime::since(c_data.time, &c_data.date);
+        let since_last = now.since(&today,c_data.time, &c_data.date);
         println!(
             "You have been clocked in for {} for {} hours",
             c_data, since_last,
@@ -419,10 +322,7 @@ fn main() -> Result<(), failure::Error> {
     }
 
     if let Some(d) = cfg.grab().arg("since").done() {
-        let dt = LineClockAction::pest_parse(Rule::Date, &d)?
-            .action
-            .as_date()
-            .ok_or(TokErr::from("Could not read since date"))?;
+        let dt = clockin::read_date(&d)?;
         c_io.retain(|(ind, _)| ind.date >= dt);
     }
 

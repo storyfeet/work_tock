@@ -27,6 +27,13 @@ pub enum ClockAction {
 }
 use self::ClockAction::*;
 
+pub fn read_date(s: &str) -> Result<NaiveDate,TokErr> {
+    LineClockAction::pest_parse(Rule::Date, &s).map_err(|e|e.err)?
+        .action
+        .as_date()
+            .ok_or(TokErr::from("Could not read since date"))
+}
+
 impl ClockAction {
     pub fn as_date(&self) -> Option<NaiveDate> {
         match self {

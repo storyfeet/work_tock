@@ -7,6 +7,9 @@ See Documentation for basic file format
 
 otherwise the --help command should be useful enough.
 
+## please not a significant change in usage has been applied to the cli. See change log entry 0.1.8 to handle setting out and in times.
+
+
 Basic Usage
 ----------
 
@@ -70,7 +73,9 @@ Printing and Filters
 
 Using "-p" Will print all entries, but if you want to be morse spcific you can apply a filter and -p will print only entries that pass that filter.
 
-To get more relevent data you can use filters such as "-d" :Today, or "--day 3/1/2019", or by job 
+> NOTE: -t for today used to be -d which is now used to specify a date to work on
+
+To get more relevent data you can use filters such as "-t" :Today, or "--day 3/1/2019", or by job 
 
 eg: ```work_tock -p --job Carwashing``` will return
 
@@ -92,6 +97,22 @@ For more information use ```work_tock --help```
 
 changes:
 =========
+
+v 0.1.8
+---------
+
+* --outat no longer exists instead use -o -a <timeout>
+* --in now use -a (at time) and -d (on date) to set date and time instead of comma separated parsing.
+
+to help with issues arising from forgetting to clockout yesterday, -y can be used to treat the current day as yesterday, eg: yesterday I clocked in at 12:00 and forgot to clockout at 17:00
+
+    work_tock -oy -a 17:00 
+
+means
+
+    work_tock out yesterday at 17:00
+
+
 
 v 0.1.7
 --------

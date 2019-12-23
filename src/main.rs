@@ -111,6 +111,7 @@ fn main() -> Result<(), failure::Error> {
             (@arg clockout: -o --out "Clock out Now")
             (@arg clockoutat: --outat +takes_value "Clock out at given time")
             (@arg long_day: -l --long_day "Acknowledge working past midnight")
+            (@arg yesterday: -y --yesterday "go back one day equivilat to -d <the day before>")
             (@arg same_day:-s --same_day "Clockout on the same day as the clockin")
 
             (@arg since: --since +takes_value "Filter Since given date (inclusive)")
@@ -169,6 +170,12 @@ fn main() -> Result<(), failure::Error> {
         Some(s)=>clockin::read_date(&s)?,
         None=>Local::now().date().naive_local(),
     };
+    let today = match cfg.bool_flag("yesterday",Filter::Arg){
+        true => today- chrono::Duration::days(1),
+        false => today,
+    };
+    
+    
     let now = match cfg.grab().arg("attime").done(){
         Some(s)=>STime::from_str(&s)?,
         None=>STime::now(),
@@ -189,6 +196,9 @@ fn main() -> Result<(), failure::Error> {
         }
 
         let since = now.since(&today,c_data.time, &c_data.date);
+        if since < STime::new(0,0) {
+            return Err(TokErr::from(format!("Cannot clockout before clockin")).into());
+        }
         let mut f = append_to(&fname)?;
         let otime = since + c_data.time;
 

@@ -27,7 +27,7 @@ pub trait Pestable: Sized {
     }
 
     fn pest_parse(r: Rule, s: &str) -> Result<Self, LineErr> {
-        let ps = TimeFile::parse(r, s).unwrap().next();
+        let ps = TimeFile::parse(r, s).map_err(|_| TokErr::from(format!("could not parse '{}' as time",s)).on_line(0) )?.next();
         Self::from_pestopt(ps)
     }
 }
@@ -68,5 +68,4 @@ mod test {
 
         assert_eq!(rc.next().expect("Or this one").as_str(), "25");
     }
-
 }

@@ -2,13 +2,14 @@ use chrono::naive::NaiveDate;
 use chrono::offset::Local;
 use chrono::Timelike;
 use derive_more::*;
+use gobble::Parser;
 use std::fmt::{Debug, Display, Formatter};
 use std::str::FromStr;
 
-use pest::Parser;
+//use pest::Parser;
 
-use crate::err::{LineErr, TokErr};
-use crate::pesto::{LineNum, Pestable, Rule, TimeFile};
+use crate::err::TokErr;
+//use crate::pesto::{LineNum, Pestable, Rule, TimeFile};
 
 #[derive(Copy, Clone, PartialOrd, PartialEq, Eq, Add, Sub, AddAssign, SubAssign)]
 pub struct STime(isize); //minutes
@@ -28,29 +29,10 @@ impl STime {
     }
 }
 
-impl Pestable for STime {
-    fn from_pesto(p: pest::iterators::Pair<Rule>) -> Result<Self, LineErr> {
-        match p.as_rule() {
-            Rule::Time => {
-                let mut rc = p.into_inner();
-                Ok(STime::new(
-                    isize::from_pestopt(rc.next())?,
-                    isize::from_pestopt(rc.next())?,
-                ))
-            }
-            Rule::Clockout => STime::from_pestopt(p.into_inner().next()),
-            v => Err(TokErr::UnexpectedRule(v).on_line(p.line_num())),
-        }
-    }
-}
-
 impl FromStr for STime {
     type Err = TokErr;
     fn from_str(s: &str) -> Result<Self, TokErr> {
-        let p = TimeFile::parse(crate::pesto::Rule::Time, s)?
-            .next()
-            .unwrap();
-        Self::from_pesto(p).map_err(|e| e.err)
+        Ok(crate::gob::s_time().parse_s(s)?)
     }
 }
 

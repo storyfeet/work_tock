@@ -68,8 +68,9 @@
 extern crate work_tock_lib;
 
 use work_tock_lib::{
-    clockin,  Clockin,  LineClockAction, Pestable, Rule, STime, TokErr,
+    clockin,  Clockin,     STime, TokErr,
 };
+//use gobble::Parser;
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -133,11 +134,14 @@ fn main() -> Result<(), failure::Error> {
 
     let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
 
-    let (clocks, errs) = clockin::read_string(&s);
-
-    if errs.len() > 0 {
-        println!("\n\nERRS  \n{:?}", errs);
-    }
+    let clocks = match clockin::read_string(&s){
+        Ok(c)=>c,
+        Err(e)=> {
+            println!("\n\n Errs : \n");
+            return Err(e.into());
+        }
+    };
+    
 
     let mut curr = None;
     let mut c_io = Vec::new();
@@ -337,11 +341,7 @@ fn main() -> Result<(), failure::Error> {
     }
 
     if let Some(d) = cfg.grab().arg("until").done() {
-        let lc = LineClockAction::pest_parse(Rule::Date, &d)?;
-        let dt = lc
-            .action
-            .as_date()
-            .ok_or(TokErr::from("Could not read since date"))?;
+        let dt = clockin::read_date(&d)?;
         c_io.retain(|(ind, _)| ind.date <= dt);
     }
 

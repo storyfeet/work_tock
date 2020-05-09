@@ -1,4 +1,3 @@
-use crate::pesto;
 use failure_derive::*;
 
 #[derive(Debug, PartialEq, Fail)]
@@ -15,15 +14,15 @@ pub enum TokErr {
     #[fail(display = "Not Set : {}", 0)]
     NotSet(&'static str),
     #[fail(display = "{}", 0)]
-    ParseErr(pest::error::Error<pesto::Rule>),
+    ParseErr(gobble::ParseError),
     #[fail(display = "Cannot parse int")]
     ParseIntErr,
-    #[fail(display = "Unexepected Parsing Rule {:?}", 0)]
-    UnexpectedRule(pesto::Rule),
     #[fail(display = "No Token")]
     NoToken,
     #[fail(display = "Cannot work for negative time")]
     NegativeTime,
+    #[fail(display = "Processing errors {:?}", 0)]
+    Lines(Vec<LineErr>),
 }
 
 impl TokErr {
@@ -44,14 +43,14 @@ impl From<String> for TokErr {
     }
 }
 
-impl From<pest::error::Error<pesto::Rule>> for TokErr {
-    fn from(e: pest::error::Error<pesto::Rule>) -> Self {
-        TokErr::ParseErr(e)
-    }
-}
-
 impl From<std::num::ParseIntError> for TokErr {
     fn from(_: std::num::ParseIntError) -> Self {
         TokErr::ParseIntErr
+    }
+}
+
+impl From<gobble::ParseError> for TokErr {
+    fn from(e: gobble::ParseError) -> Self {
+        TokErr::ParseErr(e)
     }
 }

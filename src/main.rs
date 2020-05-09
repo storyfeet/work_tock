@@ -247,7 +247,7 @@ fn main() -> Result<(), failure::Error> {
             "today".to_string()
         };
         println!(// message 
-            "You are now clocking in {} at {} for {}",
+            "You are now clocking in {} at {} for \"{}\"",
             date_str,
             now,
             job
@@ -260,7 +260,7 @@ fn main() -> Result<(), failure::Error> {
                     today.format("%d/%m/%Y\n\t").to_string()
                 }else { "\t".to_string()};
                 if lj.job != job {
-                    f.push_str(&format!("{},",job));
+                    f.push_str(&format!("{},",do_quotes(&job)));
                 }
                 f.push_str(&now.to_string());
                 f
@@ -389,4 +389,13 @@ fn main() -> Result<(), failure::Error> {
     println!("Total Time = {}", t_time);
 
     Ok(())
+}
+
+fn do_quotes(s:&str)->String{
+    for c in " \n\t".chars(){
+        if s.contains(c){
+            return format!("\"{}\"",s);
+        }
+    }
+    s.to_string()
 }

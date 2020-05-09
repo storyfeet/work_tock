@@ -25,13 +25,15 @@ pub enum ClockAction {
     SetDate(u32, u32, Option<i32>),
     SetNum(String, i32),
 }
+
 use self::ClockAction::*;
 
-pub fn read_date(s: &str) -> Result<NaiveDate,TokErr> {
-    LineClockAction::pest_parse(Rule::Date, &s).map_err(|e|e.err)?
+pub fn read_date(s: &str) -> Result<NaiveDate, TokErr> {
+    LineClockAction::pest_parse(Rule::Date, &s)
+        .map_err(|e| e.err)?
         .action
         .as_date()
-            .ok_or(TokErr::from("Could not read since date"))
+        .ok_or(TokErr::from("Could not read since date"))
 }
 
 impl ClockAction {

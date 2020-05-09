@@ -11,19 +11,19 @@ use crate::err::{LineErr, TokErr};
 use crate::pesto::{LineNum, Pestable, Rule, TimeFile};
 
 #[derive(Copy, Clone, PartialOrd, PartialEq, Eq, Add, Sub, AddAssign, SubAssign)]
-pub struct STime(i32); //minutes
+pub struct STime(isize); //minutes
 
 impl STime {
-    pub fn new(hr: i32, min: i32) -> Self {
+    pub fn new(hr: isize, min: isize) -> Self {
         STime(hr * 60 + min)
     }
     pub fn now() -> Self {
         let t = Local::now();
-        STime::new(t.time().hour() as i32, t.time().minute() as i32)
+        STime::new(t.time().hour() as isize, t.time().minute() as isize)
     }
 
     pub fn since(&self, now_date: &NaiveDate, then_time: Self, then_date: &NaiveDate) -> Self {
-        let days_between = (*now_date - *then_date).num_days() as i32;
+        let days_between = (*now_date - *then_date).num_days() as isize;
         *self + STime::new(24 * days_between, 0) - then_time
     }
 }
@@ -34,8 +34,8 @@ impl Pestable for STime {
             Rule::Time => {
                 let mut rc = p.into_inner();
                 Ok(STime::new(
-                    i32::from_pestopt(rc.next())?,
-                    i32::from_pestopt(rc.next())?,
+                    isize::from_pestopt(rc.next())?,
+                    isize::from_pestopt(rc.next())?,
                 ))
             }
             Rule::Clockout => STime::from_pestopt(p.into_inner().next()),

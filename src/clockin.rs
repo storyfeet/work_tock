@@ -5,6 +5,7 @@ use chrono::Datelike;
 //use pest::Parser;
 use crate::gob;
 use gobble::Parser;
+use std::collections::BTreeMap;
 use std::fmt::Display;
 
 use crate::err::TokErr;
@@ -28,6 +29,7 @@ pub enum ClockAction {
     SetJob(String),
     SetDate(usize, usize, Option<isize>),
     SetNum(String, isize),
+    DefGroup(String, Vec<String>),
 }
 
 use self::ClockAction::*;
@@ -64,6 +66,11 @@ pub enum Clockin {
     Out(STime),
 }
 
+pub struct AllData {
+    pub clocks: Vec<Clockin>,
+    pub groups: BTreeMap<String, Vec<String>>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct InData {
     pub time: STime,
@@ -79,13 +86,14 @@ impl Display for InData {
     }
 }
 
-pub fn read_string(s: &str) -> Result<Vec<Clockin>, TokErr> {
+pub fn read_string(s: &str) -> Result<AllData, TokErr> {
     let mut job = "General".to_string();
     let mut tags = Vec::new();
     let mut date = NaiveDate::from_ymd(1, 1, 1); //consider changing
     let mut year: Option<isize> = None;
 
-    let mut res = Vec::new();
+    let mut c_res = Vec::new();
+    let mut groups = BTreeMap::new();
 
     let c_ac = gob::line_clock_actions().parse_s(s)?;
     let mut errs = Vec::new();
@@ -106,7 +114,7 @@ pub fn read_string(s: &str) -> Result<Vec<Clockin>, TokErr> {
                     year = Some(v);
                 }
             }
-            In(time) => res.push(Clockin::In(InData {
+            In(time) => c_res.push(Clockin::In(InData {
                 time,
                 job: job.clone(),
                 tags: tags.clone(),
@@ -114,16 +122,19 @@ pub fn read_string(s: &str) -> Result<Vec<Clockin>, TokErr> {
                 line: ac.line,
             })),
 
-            Out(time) => res.push(Clockin::Out(time)),
+            Out(time) => c_res.push(Clockin::Out(time)),
             InOut(tin, tout) => {
-                res.push(Clockin::In(InData {
+                c_res.push(Clockin::In(InData {
                     time: tin,
                     job: job.clone(),
                     tags: tags.clone(),
                     date,
                     line: ac.line,
                 }));
-                res.push(Clockin::Out(tout));
+                c_res.push(Clockin::Out(tout));
+            }
+            DefGroup(k, v) => {
+                groups.insert(k, v);
             }
         }
     }
@@ -131,6 +142,9 @@ pub fn read_string(s: &str) -> Result<Vec<Clockin>, TokErr> {
     if errs.len() > 0 {
         Err(TokErr::Lines(errs))
     } else {
-        Ok(res)
+        Ok(AllData {
+            clocks: c_res,
+            groups: groups,
+        })
     }
 }

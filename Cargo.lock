@@ -128,7 +128,7 @@ dependencies = [
 [[package]]
 name = "gobble"
 version = "0.1.6"
-source = "git+https://github.com/storyfeet/gobble#cf4ceadbebd2dc45fdfcebd837ede849de338f02"
+source = "git+https://github.com/storyfeet/gobble#dae38cf607558a87984287a1e9483ec3278dda57"
 dependencies = [
  "failure 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",

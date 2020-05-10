@@ -118,6 +118,7 @@ fn main() -> Result<(), failure::Error> {
             (@arg since: --since +takes_value "Filter Since given date (inclusive)")
             (@arg until: --until +takes_value "Filter until given date (inclusive)")
             (@arg job: --job +takes_value "Filter by Job")
+            (@arg group: -g --group + takes_value "Filter by group")
             (@arg jobstart: --job_s +takes_value "Filter by Job Starts with")
             (@arg tag: --tag +takes_value "Filter by Tag")
     )
@@ -134,7 +135,7 @@ fn main() -> Result<(), failure::Error> {
 
     let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
 
-    let clocks = match clockin::read_string(&s){
+    let clock_data = match clockin::read_string(&s){
         Ok(c)=>c,
         Err(e)=> {
             println!("\n\n Errs : \n");
@@ -147,7 +148,7 @@ fn main() -> Result<(), failure::Error> {
     let mut c_io = Vec::new();
     //Get outs with ins so filter makes sense
     //If currently clocked in leaves curr as an option to be added later
-    for c in clocks {
+    for c in clock_data.clocks {
         match c {
             Clockin::In(data) => {
                 if let Some(cin) = curr {
@@ -293,6 +294,12 @@ fn main() -> Result<(), failure::Error> {
         let fin = NaiveDate::from_isoywd(dt.year(), dt.iso_week().week(), Weekday::Sun);
         println!("Filtering by week {}", wk);
         c_io.retain(|(ind, _)| ind.date >= st && ind.date <= fin);
+    }
+
+    if let Some(grp) = cfg.grab().arg("group").done(){
+        println!("Filtering by group {}",grp); 
+        let group = clock_data.groups.get(&grp).ok_or(TokErr::Mess(format!("Group not defined \"{}\"",grp) ))?;
+        c_io.retain(|(ind,_)| group.contains(&ind.job));
     }
 
     if let Some(wks) = cfg.grab().arg("week").done() {

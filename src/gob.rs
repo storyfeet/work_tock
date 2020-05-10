@@ -27,14 +27,10 @@ pub fn date() -> impl Parser<(usize, usize, Option<isize>)> {
 pub fn str_val() -> impl Parser<String> {
     or(
         common_str(),
-        (
-            read_fs(is_alpha, 1),
-            read_fs(or_char(is_alpha_num, char_in("_")), 0),
-        )
-            .map(|(mut a, b)| {
-                a.push_str(&b);
-                a
-            }),
+        (read_fs(is_alpha, 1), read_fs(is_alpha_num_u, 0)).map(|(mut a, b)| {
+            a.push_str(&b);
+            a
+        }),
     )
 }
 
@@ -65,12 +61,26 @@ pub fn line_clock_actions() -> impl Parser<Vec<LineClockAction>> {
     )
 }
 
+pub fn group() -> impl Parser<ClockAction> {
+    (
+        '$',
+        str_val(),
+        s_('['),
+        repeat_until_ig(next_(str_val()), next_("]")),
+    )
+        .map(|(_, k, _, v)| ClockAction::DefGroup(k, v))
+}
+
 pub fn clock_action() -> impl Parser<ClockAction> {
-    or6(
-        ('_', str_val()).map(|(_, s)| ClockAction::AddTag(s)),
-        ("__", maybe(str_val())).map(|(_, os)| ClockAction::ClearTags(os)),
-        ('-', s_time()).map(|(_, t)| ClockAction::Out(t)),
+    or5(
         or(
+            //handle tags
+            ('_', str_val()).map(|(_, s)| ClockAction::AddTag(s)),
+            ("__", maybe(str_val())).map(|(_, os)| ClockAction::ClearTags(os)),
+        ),
+        or3(
+            //handle time
+            ('-', s_time()).map(|(_, t)| ClockAction::Out(t)),
             date().map(|(d, m, yop)| ClockAction::SetDate(d, m, yop)),
             (s_time(), maybe(('-', s_time()))).map(|(i, op)| match op {
                 Some((_, out)) => ClockAction::InOut(i, out),
@@ -78,6 +88,7 @@ pub fn clock_action() -> impl Parser<ClockAction> {
             }),
         ),
         ('=', str_val(), s_(':'), common_int).map(|(_, k, _, v)| ClockAction::SetNum(k, v)),
+        group(),
         (str_val(), maybe((s_('='), common_int))).map(|(k, set)| match set {
             Some((_, v)) => ClockAction::SetNum(k, v),
             None => ClockAction::SetJob(k),

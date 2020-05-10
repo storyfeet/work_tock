@@ -27,10 +27,14 @@ pub fn date() -> impl Parser<(usize, usize, Option<isize>)> {
 pub fn str_val() -> impl Parser<String> {
     or(
         common_str(),
-        (read_fs(is_alpha, 1), read_fs(is_alpha_num, 0)).map(|(mut a, b)| {
-            a.push_str(&b);
-            a
-        }),
+        (
+            read_fs(is_alpha, 1),
+            read_fs(or_char(is_alpha_num, char_in("_")), 0),
+        )
+            .map(|(mut a, b)| {
+                a.push_str(&b);
+                a
+            }),
     )
 }
 
@@ -79,4 +83,20 @@ pub fn clock_action() -> impl Parser<ClockAction> {
             None => ClockAction::SetJob(k),
         }),
     )
+}
+
+#[cfg(test)]
+pub mod test {
+    use super::*;
+    #[test]
+    pub fn str_val_parses_dashes() {
+        let p = str_val();
+        assert_eq!(p.parse_s("hello "), Ok("hello".to_string()));
+        assert_eq!(p.parse_s("hel_p_me@52"), Ok("hel_p_me".to_string()));
+        assert_eq!(
+            p.parse_s(r#""hello\tworld"poo "#),
+            Ok("hello\tworld".to_string())
+        );
+        assert!(p.parse_s("_hello").is_err());
+    }
 }

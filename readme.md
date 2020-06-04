@@ -7,7 +7,6 @@ See Documentation for basic file format
 
 otherwise the --help command should be useful enough.
 
-## please not a significant change in usage has been applied to the cli. See change log entry 0.1.8 to handle setting out and in times.
 
 
 Basic Usage
@@ -44,7 +43,7 @@ To set the location of the core file, the default config for your program can be
 
 A standard file looks like this :
 
-```
+```toml
 $home_jobs[car_wash,eat]
 23/01/2019
     car_wash,12:30-13:50
@@ -73,7 +72,7 @@ Every Clockin will use the most recent Job,Date, and Tags for the clocking,
 
 So given the example file ```work_tock``` will produce:
 
-```
+```toml
 {"car_wash": 02:20, "eat": 04:00, "programming": 01:00}
 
 Total Time = 07:20
@@ -91,7 +90,7 @@ To get more relevent data you can use filters such as "-t" :Today, or "--day 3/1
 
 eg: ```work_tock -p --job car_wash``` will return
 
-```
+```toml
 23/01/2019
   car_wash: 12:30-13:50 = 01:20   => 01:20
   car_wash: 15:00-16:00 = 01:00   => 02:20
@@ -104,7 +103,7 @@ Total Time = 02:20
 
 or ```work_tock -p --group home_jobs``` will produce:
 
-```
+```toml
 Filtering by group home_jobs
 23/01/2019
   car_wash: 12:30-13:50 = 01:20   => 01:20

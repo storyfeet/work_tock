@@ -121,6 +121,8 @@ fn main() -> Result<(), failure::Error> {
             (@arg group: -g --group + takes_value "Filter by group")
             (@arg jobstart: --job_s +takes_value "Filter by Job Starts with")
             (@arg tag: --tag +takes_value "Filter by Tag")
+            (@arg camel: --camel "Force Camel Case on job input")
+            (@arg snake: --snake "Force Camel Case on job input")
     )
     .get_matches();
 
@@ -223,7 +225,19 @@ fn main() -> Result<(), failure::Error> {
     }
 
     if let Some(istr) = cfg.grab().arg("clockin").done() {
+        //camel case required
+        let f_camel = cfg.bool_flag("camel",Filter::Arg) || cfg.bool_flag("config.camel",Filter::Conf);
+        if f_camel && istr.contains("_"){
+            return Err(TokErr::from("You have required CamelCase job entires").into());
+        }
+        //snake case required{
+        let f_snake = cfg.bool_flag("snake",Filter::Arg) || cfg.bool_flag("config.snake",Filter::Conf);
+        if f_snake && istr.chars().find(|c|c.is_uppercase()).is_some(){
+            return Err(TokErr::from("You have required snake_case job entires").into());
+
+        }
         clockin = Some(istr);
+
     }
 
     if let Some(job) = clockin{

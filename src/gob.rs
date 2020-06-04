@@ -16,7 +16,7 @@ pub enum ClockAction {
 }
 */
 
-pub fn date() -> impl Parser<(usize, usize, Option<isize>)> {
+pub fn date() -> impl Parser<Out = (usize, usize, Option<isize>)> {
     (
         common_uint,
         s_('/').ig_then(common_uint),
@@ -24,35 +24,36 @@ pub fn date() -> impl Parser<(usize, usize, Option<isize>)> {
     )
 }
 
-pub fn str_val() -> impl Parser<String> {
+pub fn str_val() -> impl Parser<Out = String> {
     or(
-        common_str(),
-        (read_fs(is_alpha, 1), read_fs(is_alpha_num_u, 0)).map(|(mut a, b)| {
+        common_str,
+        (Alpha.min_n(1), (Alpha, NumDigit, "_").any()).map(|(mut a, b)| {
             a.push_str(&b);
             a
         }),
     )
 }
 
-pub fn comment() -> impl Parser<()> {
+pub fn comment() -> impl Parser<Out = ()> {
     '#'.ig_then(skip_while(|c| !"\n\r,".contains(c), 0))
 }
 
-pub fn next_<P: Parser<V>, V>(p: P) -> impl Parser<V> {
-    sep(skip_while(|c| ", \t\n\r".contains(c), 0), comment(), true).ig_then(p)
+pub fn next_<P: Parser>(p: P) -> impl Parser<Out = P::Out> {
+    sep(", \t\n\r".skip(), comment(), 1).ig_then(p)
 }
 
-pub fn to_end() -> impl Parser<()> {
-    read_fs(|c| ", \t\n\r".contains(c), 0).ig_then(eoi)
+pub fn to_end() -> impl Parser<Out = ()> {
+    " ,\t\n\r".skip().ig_then(eoi)
+    // read_fs(|c| ", \t\n\r".contains(c), 0).ig_then(eoi)
 }
 
-pub fn s_time() -> impl Parser<STime> {
+pub fn s_time() -> impl Parser<Out = STime> {
     (common_int, s_(":"), common_int).map(|(a, _, b)| STime::new(a, b))
 }
 
-pub fn line_clock_actions() -> impl Parser<Vec<LineClockAction>> {
+pub fn line_clock_actions() -> impl Parser<Out = Vec<LineClockAction>> {
     repeat_until_ig(
-        next_(line_col(clock_action())).map(|(line, col, action)| LineClockAction {
+        next_((line_col, clock_action())).map(|((line, col), action)| LineClockAction {
             line,
             col,
             action,
@@ -61,7 +62,7 @@ pub fn line_clock_actions() -> impl Parser<Vec<LineClockAction>> {
     )
 }
 
-pub fn group() -> impl Parser<ClockAction> {
+pub fn group() -> impl Parser<Out = ClockAction> {
     (
         '$',
         str_val(),
@@ -71,7 +72,7 @@ pub fn group() -> impl Parser<ClockAction> {
         .map(|(_, k, _, v)| ClockAction::DefGroup(k, v))
 }
 
-pub fn clock_action() -> impl Parser<ClockAction> {
+pub fn clock_action() -> impl Parser<Out = ClockAction> {
     or5(
         or(
             //handle tags

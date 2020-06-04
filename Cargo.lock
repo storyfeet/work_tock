@@ -133,7 +133,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "gobble"
 version = "0.3.0"
-source = "git+https://github.com/storyfeet/gobble#45628ba9be6b03c46ef015497cd6d6fb1c6582d8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "anyhow 1.0.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.19 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -415,14 +415,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "work_tock"
-version = "0.1.8"
+version = "0.2.0"
 dependencies = [
  "chrono 0.4.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap_conf 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "derive_more 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure_derive 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "gobble 0.3.0 (git+https://github.com/storyfeet/gobble)",
+ "gobble 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_conf 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "num 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -443,7 +443,7 @@ dependencies = [
 "checksum failure 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "d32e9bd16cc02eae7db7ef620b392808b89f6a5e16bb3497d159c6b92a0f4f86"
 "checksum failure_derive 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "aa4da3c766cd7a0db8242e326e9e4e081edd567072893ed320008189715366a4"
 "checksum gimli 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bcc8e0c9bce37868955864dbecd2b1ab2bdf967e6f28066d65aaac620444b65c"
-"checksum gobble 0.3.0 (git+https://github.com/storyfeet/gobble)" = "<none>"
+"checksum gobble 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a48ee151da4b472a04d8278446319506835cb5e1e84940e89a2850b2f18dc2d7"
 "checksum hermit-abi 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)" = "91780f809e750b0a89f5544be56617ff6b1227ee485bcb06ebe10cdf89bd3b71"
 "checksum lazy_conf 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "441f6ecac7b72ecb5b4f4bc8f86810908bcb6d8d5dc6e51d14d99b4740b3a58d"
 "checksum libc 0.2.71 (registry+https://github.com/rust-lang/crates.io-index)" = "9457b06509d27052635f90d6466700c65095fdf75409b3fbdd903e988b886f49"

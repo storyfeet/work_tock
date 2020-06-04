@@ -1,0 +1,14 @@
+$home_jobs[car_wash,eat]
+23/01/2019
+    car_wash,12:30-13:50
+    15:00,#car_wash is implied by previous Job
+    programming,16:00,#Clockout for car_wash is implied by new Job
+    eat,17:00
+  -18:00,#Clockout
+
+24/01/2019
+    12:00,#Eating is implied as it was the last job
+  -13:00
+    programming,14:00
+  -16:00
+

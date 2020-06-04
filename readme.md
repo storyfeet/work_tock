@@ -21,32 +21,42 @@ clockout
 
     work_tock -o
 
+Or print a record of recent clock entries with flags
 
-The program works with a single text file, and will only read, and append to it, so all data in that file will otherwise remain untouched.
+    work_tock --job_s dothing -p --since 03/04/2020
 
-use "-f" to select the file or set it in "$HOME/.config/work\_tock/init.toml"
+
+The program works with a single text file that is easy to edit if needed. The program will never overwrite your file, only read and append, so all data in that file will otherwise remain untouched.
+
+To set the location of the core file, the default config for your program can be found in "$HOME/.config/work\_tock/init.toml 
 
 ```toml
 [config]
+    # Set path the the current working file 
+    # anything within "{}" is read as an environment variable
     file="{HOME}/<path>/<to>/<file>"
-```
 
-"{HOME}" is the env var $HOME, Any other env var can be used or not.
+    #Optional require all job entries to be snake_case
+    snake=true  
+    
+    #camel=true  #if you prefer camelCase
+```
 
 A standard file looks like this :
 
 ```
+$home_jobs[car_wash,eat]
 23/01/2019
-    Carwashing,12:30-13:50
-    15:00,#Carwashing is implied by previous Job
-    Programming,16:00,#Clockout for Carwash is implied by new Job
-    Eating,17:00
+    car_wash,12:30-13:50
+    15:00,#car_wash is implied by previous Job
+    programming,16:00,#Clockout for car_wash is implied by new Job
+    eat,17:00
   -18:00,#Clockout
 
 24/01/2019
-    _breakfast,#Tags can be added with underscore
-    15:00,#Eating is implied as it was the last job
-    __,#clears all current tags.
+    12:00,#Eating is implied as it was the last job
+  -13:00
+    programming,14:00
   -16:00
 ```
 
@@ -57,15 +67,17 @@ A standard file looks like this :
 * Clockouts are  "-hh:mm"
 * Tags begin with an "\_" and can be cleared with "\_\_"
 * Dates are dd/mm/yyyy, but if you set year=2019, dates can be dd/mm after that.
+* Groups are defined by a ```$group_name[list,of,jobs,in,group]```
 
 Every Clockin will use the most recent Job,Date, and Tags for the clocking, 
 
 So given the example file ```work_tock``` will produce:
 
 ```
-{"Carwashing": 02:20, "Eating": 02:00, "Programming": 01:00}
+{"car_wash": 02:20, "eat": 04:00, "programming": 01:00}
 
-Total Time = 05:20
+Total Time = 07:20
+
 ```
 
 Printing and Filters
@@ -77,17 +89,38 @@ Using "-p" Will print all entries, but if you want to be morse spcific you can a
 
 To get more relevent data you can use filters such as "-t" :Today, or "--day 3/1/2019", or by job 
 
-eg: ```work_tock -p --job Carwashing``` will return
+eg: ```work_tock -p --job car_wash``` will return
 
 ```
 23/01/2019
-  Carwashing: 12:30-13:50 = 01:20   => 01:20
-  Carwashing: 15:00-16:00 = 01:00   => 02:20
+  car_wash: 12:30-13:50 = 01:20   => 01:20
+  car_wash: 15:00-16:00 = 01:00   => 02:20
 
-{"Carwashing": 02:20}
+{"car_wash": 02:20}
 
 Total Time = 02:20
+
 ```
+
+or ```work_tock -p --group home_jobs``` will produce:
+
+```
+Filtering by group home_jobs
+23/01/2019
+  car_wash: 12:30-13:50 = 01:20   => 01:20
+  car_wash: 15:00-16:00 = 01:00   => 02:20
+  eat: 17:00-18:00 = 01:00   => 03:20
+24/01/2019
+  eat: 12:00-13:00 = 01:00   => 04:20
+
+{"car_wash": 02:20, "eat": 02:00}
+
+Total Time = 04:20
+
+```
+
+
+
 
 For more information use ```work_tock --help```
 
@@ -98,8 +131,12 @@ For more information use ```work_tock --help```
 changes:
 =========
 
-v 0.1.8
----------
+## v 0.2.0
+
+* Now has job groups allowing you to define a group of jobs
+* Now allows you to require camel or snake case in the config file
+
+## v 0.1.8
 
 * --outat no longer exists instead use -o -a <timeout>
 * --in now use -a (at time) and -d (on date) to set date and time instead of comma separated parsing.

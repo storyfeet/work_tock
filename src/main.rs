@@ -1,69 +1,132 @@
-//! Work Tock: A Time Tracking System.
-//!
-//! The Primary purpose of this program is to easily track your hours
-//! for various different Jobs.
-//!
-//! I use it as a Freelancer to keep tabs on each job I have, and to track my own hours.
-//!
-//! The program has two main functions.
-//! The primary function is to parse a Clockin file and print various records based on that.
-//! The second is to make it easy to add a clocking in and out to that file.
-//!
-//! To tell the program where that file is, put the following in $HOME/.config/init:
-//! ```bash
-//! config:
-//!     file:{HOME}/<path>/<to>/<intended>/<file>
-//!
-//! ```
-//! (The "{}" Is for environment variables)
 //!
 //!
-//! ```bash
-//! #Clockin
-//! work_tock -i <JobName>
-//! #or
-//! work_tock -i "<JobName>,<time>,<date>"
+//!   Work Tock
+//!   ==========
 //!
-//! #Clockout
-//! work_tock -o
-//! #or
-//! work_tock --outat 13:37
+//!   A command line work tracking program.
 //!
-//! ```
-//! Times are always in 24:00 hr notation
+//!   See Documentation for basic file format
 //!
-//! work_tock will append your actions to the END of the file
-//! and not change anything else within so everything you have written
-//! is safe
+//!   otherwise the --help command should be useful enough.
 //!
-//! An Example File
-//! ```bash
-//! #Comments begin with a hash
-//! #entries are separated by a comma or newline
-//! #whitespace is otherwise ignored
-//! 23/01/2019
-//!     Carwashing,12:30-13:50
-//!     15:00,#Carwashing is implied by previous Job
-//!     Programming,16:00,#Clockout for Carwash is implied by new Job
-//!     Eating,17:00
-//!   -18:00,#Clockout
-//!
-//! 24/01/2019
-//!     _breakfast,#Tags can be added with underscore
-//!     15:00,#Eating is implied as it was the last job
-//!     __,#clears all current tags.
-//!   -16:00
-//!
-//! ```
-//!
-//! running work_tock on the above file will produce:
-//! ```bash
-//! {"Carwashing": 02:20, "Eating": 02:00, "Programming": 01:00}
-//!
-//! Total Time = 05:20
-//! ```
+//!   ## please not a significant change in usage has been applied to the cli. See change log entry 0.1.8 to handle setting out and in times.
 //!
 //!
+//!   Basic Usage
+//!   ----------
+//!
+//!   You can use this program to clockin
+//!
+//!       work_tock -i <JobName>
+//!
+//!   clockout
+//!
+//!       work_tock -o
+//!
+//!   Or print a record of recent clock entries with flags
+//!
+//!       work_tock --job_s dothing -p --since 03/04/2020
+//!
+//!
+//!   The program works with a single text file that is easy to edit if needed. The program will never overwrite your file, only read and append, so all data in that file will otherwise remain untouched.
+//!
+//!   To set the location of the core file, the default config for your program can be found in "$HOME/.config/work\_tock/init.toml 
+//!
+//!   ```toml
+//!   [config]
+//!       # Set path the the current working file 
+//!       # anything within "{}" is read as an environment variable
+//!       file="{HOME}/<path>/<to>/<file>"
+//!
+//!       #Optional require all job entries to be snake_case
+//!       snake=true  
+//!       
+//!       #camel=true  #if you prefer camelCase
+//!   ```
+//!
+//!   A standard file looks like this :
+//!
+//!   ```
+//!   $home_jobs[car_wash,eat]
+//!   23/01/2019
+//!       car_wash,12:30-13:50
+//!       15:00,#car_wash is implied by previous Job
+//!       programming,16:00,#Clockout for car_wash is implied by new Job
+//!       eat,17:00
+//!     -18:00,#Clockout
+//!
+//!   24/01/2019
+//!       12:00,#Eating is implied as it was the last job
+//!     -13:00
+//!       programming,14:00
+//!     -16:00
+//!   ```
+//!
+//!   * Commas and newlines begin a new item
+//!   * Whitespace is ignored next to either side or a break (",","\n")
+//!   * Jobs are Letters only
+//!   * Clockins are "hh:mm"
+//!   * Clockouts are  "-hh:mm"
+//!   * Tags begin with an "\_" and can be cleared with "\_\_"
+//!   * Dates are dd/mm/yyyy, but if you set year=2019, dates can be dd/mm after that.
+//!   * Groups are defined by a ```$group_name[list,of,jobs,in,group]```
+//!
+//!   Every Clockin will use the most recent Job,Date, and Tags for the clocking, 
+//!
+//!   So given the example file ```work_tock``` will produce:
+//!
+//!   ```
+//!   {"car_wash": 02:20, "eat": 04:00, "programming": 01:00}
+//!
+//!   Total Time = 07:20
+//!
+//!   ```
+//!
+//!   Printing and Filters
+//!   ------------------
+//!
+//!   Using "-p" Will print all entries, but if you want to be morse spcific you can apply a filter and -p will print only entries that pass that filter.
+//!
+//!   > NOTE: -t for today used to be -d which is now used to specify a date to work on
+//!
+//!   To get more relevent data you can use filters such as "-t" :Today, or "--day 3/1/2019", or by job 
+//!
+//!   eg: ```work_tock -p --job car_wash``` will return
+//!
+//!   ```
+//!   23/01/2019
+//!     car_wash: 12:30-13:50 = 01:20   => 01:20
+//!     car_wash: 15:00-16:00 = 01:00   => 02:20
+//!
+//!   {"car_wash": 02:20}
+//!
+//!   Total Time = 02:20
+//!
+//!   ```
+//!
+//!   or ```work_tock -p --group home_jobs``` will produce:
+//!
+//!   ```
+//!   Filtering by group home_jobs
+//!   23/01/2019
+//!     car_wash: 12:30-13:50 = 01:20   => 01:20
+//!     car_wash: 15:00-16:00 = 01:00   => 02:20
+//!     eat: 17:00-18:00 = 01:00   => 03:20
+//!   24/01/2019
+//!     eat: 12:00-13:00 = 01:00   => 04:20
+//!
+//!   {"car_wash": 02:20, "eat": 02:00}
+//!
+//!   Total Time = 04:20
+//!
+//!   ```
+//!
+//!
+//!
+//!
+//!   For more information use ```work_tock --help```
+//!
+
 
 extern crate work_tock_lib;
 

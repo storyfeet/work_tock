@@ -32,7 +32,7 @@ impl STime {
 impl FromStr for STime {
     type Err = TokErr;
     fn from_str(s: &str) -> Result<Self, TokErr> {
-        Ok(crate::gob::s_time().parse_s(s)?)
+        Ok(crate::gob::STIME.parse_s(s)?)
     }
 }
 

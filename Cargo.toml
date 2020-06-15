@@ -27,8 +27,9 @@ clap_conf = "0.1.2"
 failure = "0.1.5"
 failure_derive = "0.1.5"
 
-gobble = "0.3.0"
+#gobble = "0.3.0"
 #gobble = {git="https://github.com/storyfeet/gobble"}
+gobble = {path="../../mlibs/gobble/"}
 #pest = "2.1.0"
 #pest_derive = "2.1.0"
 num = "0.2"

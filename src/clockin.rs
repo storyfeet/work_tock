@@ -35,7 +35,7 @@ pub enum ClockAction {
 use self::ClockAction::*;
 
 pub fn read_date(s: &str) -> Result<NaiveDate, TokErr> {
-    let (d, m, yop) = gob::date()
+    let (d, m, yop) = gob::Date
         .parse_s(s)
         .map_err(|_| TokErr::Mess("Could not read date".to_string()))?;
     Ok(NaiveDate::from_ymd(

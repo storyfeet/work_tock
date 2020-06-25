@@ -2,55 +2,33 @@ use crate::clockin::{ClockAction, LineClockAction};
 use crate::s_time::STime;
 use gobble::*;
 
-/*
-#[derive(Debug)]
-pub enum ClockAction {
-    AddTag(String),            //TODO deprecate
-    ClearTags(Option<String>), //replacement tag
-    In(STime),
-    Out(STime),
-    InOut(STime, STime),
-    SetJob(String),
-    SetDate(u32, u32, Option<i32>),
-    SetNum(String, i32),
-}
-*/
-
 parser! {
     (Date->(usize,usize,Option<isize>))
-    (CommonUInt,last(s_('/'),CommonUInt),maybe(last(s_('/'),CommonInt)))
+    (common::UInt,last(ws__('/'),common::UInt),maybe(last(ws__('/'),common::Int)))
 }
-
-/*pub fn date() -> impl Parser<Out = (usize, usize, Option<isize>)> {
-    (
-        common_uint,
-        s_('/').ig_then(common_uint),
-        maybe(s_('/').ig_then(common_int)),
-    )
-}*/
 
 parser! {
     (StrVal -> String)
-    or(CommonStr,CommonIdent)
+    or(common::Quoted,common::Ident)
 }
 
 parser! {
     (Comment ->())
-    ('#',Any.except("\n\r,").skip_star()).ig()
+    ('#',Any.except("\n\r,").istar()).ig()
 }
 
 pub fn next_<P: Parser>(p: P) -> impl Parser<Out = P::Out> {
-    sep(", \t\n\r".skip_star(), Comment).ig_then(p)
+    sep_star(", \t\n\r".istar(), Comment).ig_then(p)
 }
 
 parser! {
     (ToEnd->()),
-    (" ,\t\n\r".skip_star(),eoi).ig()
+    (" ,\t\n\r".istar(),eoi).ig()
 }
 
 parser! {
     (STIME -> STime),
-    (CommonInt, ":", CommonInt).map(|(a, _, b)| STime::new(a, b))
+    (common::Int, ":", common::Int).map(|(a, _, b)| STime::new(a, b))
 }
 
 pub fn line_clock_actions() -> impl Parser<Out = Vec<LineClockAction>> {
@@ -69,7 +47,7 @@ parser! {
     (
         '$',
         StrVal,
-        s_('['),
+        ws__('['),
         repeat_until_ig(next_(StrVal), next_("]")),
     )
         .map(|(_, k, _, v)| ClockAction::DefGroup(k, v))
@@ -77,24 +55,20 @@ parser! {
 
 parser! {
     (ClockACTION -> ClockAction)
-    or5(
-        or(
-            //handle tags
-            ('_', StrVal).map(|(_, s)| ClockAction::AddTag(s)),
-            ("__", maybe(StrVal)).map(|(_, os)| ClockAction::ClearTags(os)),
-        ),
-        or3(
-            //handle time
-            ('-', STIME).map(|(_, t)| ClockAction::Out(t)),
-            Date.map(|(d, m, yop)| ClockAction::SetDate(d, m, yop)),
-            (STIME, maybe(('-', STIME))).map(|(i, op)| match op {
-                Some((_, out)) => ClockAction::InOut(i, out),
-                None => ClockAction::In(i),
-            }),
-        ),
-        ('=', StrVal, s_(':'), CommonInt).map(|(_, k, _, v)| ClockAction::SetNum(k, v)),
+    or!(
+        //handle tags
+        ('_', StrVal).map(|(_, s)| ClockAction::AddTag(s)),
+        ("__", maybe(StrVal)).map(|(_, os)| ClockAction::ClearTags(os)),
+        //handle time
+        ('-', STIME).map(|(_, t)| ClockAction::Out(t)),
+        Date.map(|(d, m, yop)| ClockAction::SetDate(d, m, yop)),
+        (STIME, maybe(('-', STIME))).map(|(i, op)| match op {
+            Some((_, out)) => ClockAction::InOut(i, out),
+            None => ClockAction::In(i),
+        }),
+        ('=', StrVal, ws__(':'), common::Int).map(|(_, k, _, v)| ClockAction::SetNum(k, v)),
         Group,
-        (StrVal, maybe((s_('='), CommonInt))).map(|(k, set)| match set {
+        (StrVal, maybe((ws__('='), common::Int))).map(|(k, set)| match set {
             Some((_, v)) => ClockAction::SetNum(k, v),
             None => ClockAction::SetJob(k),
         }),

@@ -126,9 +126,10 @@
 extern crate work_tock_lib;
 
 use work_tock_lib::{
-    clockin,  Clockin,     STime, TokErr,
+    clockin,  Clockin, ClockAction,    STime, TokErr, gob
 };
-//use gobble::Parser;
+
+use gobble::Parser;
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -181,6 +182,7 @@ fn main() -> Result<(), failure::Error> {
             (@arg tag: --tag +takes_value "Filter by Tag")
             (@arg camel: --camel "Force Camel Case on job input")
             (@arg snake: --snake "Force Camel Case on job input")
+            (@subcommand complete  => )
     )
     .get_matches();
 
@@ -195,6 +197,28 @@ fn main() -> Result<(), failure::Error> {
 
     let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
 
+    //Tab Complete list
+    if let Some(_sc) = clap.subcommand_matches("complete"){
+        let mut mp = std::collections::BTreeSet::new();
+        let line_actions = gob::line_clock_actions().parse_s(&s).map_err(|e|e.strung())?;
+        for a in line_actions {
+            match a.action{
+                ClockAction::SetJob(d)=>{
+                    mp.insert(d);
+            
+                }
+                _=>{}
+            }
+        }
+        for k in mp {
+            print!(" {}",k);
+        }
+        println!("");
+        return Ok(()) ;
+    }
+
+
+
     let clock_data = match clockin::read_string(&s){
         Ok(c)=>c,
         Err(e)=> {
@@ -202,7 +226,8 @@ fn main() -> Result<(), failure::Error> {
             return Err(e.into());
         }
     };
-    
+   
+
 
     let mut curr = None;
     let mut c_io = Vec::new();

@@ -32,7 +32,7 @@ parser! {
 }
 
 pub fn line_clock_actions() -> impl Parser<Out = Vec<LineClockAction>> {
-    repeat_until_ig(
+    star_until_ig(
         next_((line_col, ClockACTION)).map(|((line, col), action)| LineClockAction {
             line,
             col,
@@ -48,7 +48,7 @@ parser! {
         '$',
         StrVal,
         ws__('['),
-        repeat_until_ig(next_(StrVal), next_("]")),
+        star_until_ig(next_(StrVal), next_("]")),
     )
         .map(|(_, k, _, v)| ClockAction::DefGroup(k, v))
 }

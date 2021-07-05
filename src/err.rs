@@ -1,4 +1,5 @@
 use failure_derive::*;
+use gobble::StrungError;
 
 #[derive(Debug, PartialEq, Fail)]
 #[fail(display = "Err on line {}: {}", line, err)]
@@ -14,7 +15,7 @@ pub enum TokErr {
     #[fail(display = "Not Set : {}", 0)]
     NotSet(&'static str),
     #[fail(display = "{}", 0)]
-    ParseErr(gobble::ParseError),
+    ParseErr(StrungError),
     #[fail(display = "Cannot parse int")]
     ParseIntErr,
     #[fail(display = "No Token")]
@@ -49,8 +50,8 @@ impl From<std::num::ParseIntError> for TokErr {
     }
 }
 
-impl From<gobble::ParseError> for TokErr {
-    fn from(e: gobble::ParseError) -> Self {
+impl From<gobble::StrungError> for TokErr {
+    fn from(e: gobble::StrungError) -> Self {
         TokErr::ParseErr(e)
     }
 }

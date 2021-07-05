@@ -95,7 +95,9 @@ pub fn read_string(s: &str) -> Result<AllData, TokErr> {
     let mut c_res = Vec::new();
     let mut groups = BTreeMap::new();
 
-    let c_ac = gob::line_clock_actions().parse_s(s)?;
+    let c_ac = gob::line_clock_actions()
+        .parse_s(s)
+        .map_err(|e| e.strung())?;
     let mut errs = Vec::new();
 
     for ac in c_ac {

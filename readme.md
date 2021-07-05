@@ -120,6 +120,37 @@ Total Time = 04:20
 
 
 
+## Tab completion
+
+### bash
+
+Add the following to your bashrc
+```text
+_work_tock_complete(){
+local COMPLETES=$(work_tock complete)
+COMPREPLY=( $(compgen -W "$COMPLETES" -- ${COMP_WORDS[COMP_CWORD]}) )
+return 0
+}
+
+complete -F _work_tock_complete work_tock
+
+```
+
+### [ru\_shell](https://crates.io/ru_shell)
+
+Add one of the following to "$HOME/.config/ru_shell/init.rush" 
+
+```text
+#if first entry create a map object
+let RU_COMPLETE={work_tock= r#"$[work_tock complete]"#}
+
+#else add the map that already exists
+push RU_COMPLETE={work_tock= r#"$[work_tock complete]"#}
+
+```
+
+
+
 
 For more information use ```work_tock --help```
 
@@ -129,6 +160,10 @@ For more information use ```work_tock --help```
 
 changes:
 =========
+
+## v 0.2.1
+
+Tab completion enabled
 
 ## v 0.2.0
 

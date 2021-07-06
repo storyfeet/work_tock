@@ -138,13 +138,9 @@ complete -F _work_tock_complete work_tock
 
 ### [ru\_shell](https://crates.io/ru_shell)
 
-Add one of the following to "$HOME/.config/ru_shell/init.rush" 
+Add the following to "$HOME/.config/ru_shell/init.rush" 
 
 ```text
-#if first entry create a map object
-let RU_COMPLETE={work_tock= r#"$[work_tock complete]"#}
-
-#else add the map that already exists
 push RU_COMPLETE={work_tock= r#"$[work_tock complete]"#}
 
 ```

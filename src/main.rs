@@ -159,6 +159,8 @@ fn main() -> Result<(), failure::Error> {
             (@arg attime:-a +takes_value "perform activity at given time")
             (@arg ondate:-d +takes_value "perform activity on given date")
             (@arg file: -f --file +takes_value "Filename")
+            (@arg read: -r --read +takes_value #{1,40} "Read Only Files list")
+
             (@arg week:  --week +takes_value "Filter by Week.")
             (@arg this_week: -w "Filter by this week")
             //(@arg on_date: --date +takes_value "Filter by date.")
@@ -195,10 +197,10 @@ fn main() -> Result<(), failure::Error> {
         .rep_env()
         .expect("No File given");
 
-    let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
 
     //Tab Complete list
     if let Some(_sc) = clap.subcommand_matches("complete"){
+        let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
         let mut mp = std::collections::BTreeSet::new();
         let line_actions = gob::line_clock_actions().parse_s(&s).map_err(|e|e.strung())?;
         for a in line_actions {
@@ -219,15 +221,31 @@ fn main() -> Result<(), failure::Error> {
 
 
 
-    let clock_data = match clockin::read_string(&s){
+
+
+    let s = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
+    let mut clock_data = match clockin::read_string(&s){
         Ok(c)=>c,
         Err(e)=> {
             println!("\n\n Errs : \n");
             return Err(e.into());
         }
     };
-   
 
+    if let Some(rlist) =clap.values_of("read"){
+            for r in rlist{
+                let s2 = std::fs::read_to_string(&fname)?; //.map_err(|_| format!("Could not read file: {}", fname))?;
+                let cdata2 = match clockin::read_string(&s2) {
+                    Ok(c)=>c,
+                    Err(e)=>{
+                        println!("\n\nErrs in File : {}" ,r );
+                        return Err(e.into());
+                    }
+                };
+                
+
+            }
+    }
 
     let mut curr = None;
     let mut c_io = Vec::new();
